@@ -211,63 +211,26 @@ type_3: only ending tail. Similar to halt
 input: j, a, v_0, d
 return: j_m, a_m, d_m, t_1, t_2, t_4
 """
-def type_3(j, a, v, d, v_0 = 0):
+def type_3(j, a, v_0, d = 0):
 	
 	t_1_a = math.floor(a / j)
-	t_1_v = math.floor((abs(v-v_0)/j)**(1/2))
-	# t_1_d
-	roots = [ np.real(x) for x in np.roots([ np.sign(v-v_0) *j, np.sign(v-v_0) *-j, 2*v_0, -d]) if np.isreal(x)]
-	roots.sort()
-	if v >= v_0:
-		# positive j
-		t_1_d = math.floor(max(roots))
-	else:
-		# negative j
-		if len(roots) <= 1:
-			t_1_d = math.floor(1.5*(1+(1+6*v_0/j)**0.5))
-		else:
-			t_1_d = math.floor(roots[1]) 
-	# find t_1_a
-	t_1 = min(t_1_a, t_1_v, t_1_d)
-	t_2 = 0
-
-	if t_1 == 0:
-		if v_0 > 0: 
-			t_4 = math.ceil(d/v_0)
-		else: 
-			t_4 = 0 
-
-	else:
-		if t_1_a <= min(t_1_v, t_1_d):
-
-			t_2_v = math.floor((abs(v-v_0) / (j*t_1)) - t_1)
-			#t_2_d
-			roots = [ np.real(x) for x in np.roots([np.sign(v-v_0) *j*t_1 / 2, np.sign(v-v_0)*3*j*(t_1**2)/2-np.sign(v-v_0)*j*t_1+v_0, np.sign(v-v_0) *j*(t_1**3)-np.sign(v-v_0) *j*(t_1**2)+2*v_0*t_1 -d]) if np.isreal(x)]
-			roots.sort()
-			if v >= v_0:
-				# positive j
-				t_2_d = math.floor(max(roots))  
-			else:
-				# negative j
-				if len(roots) <= 1:
-					t_2_d = math.floor(1+(v_0/(j*t_1))-t_1*3/2)
-				else:
-					t_2_d = math.floor(roots[0])
-
-			t_2 = min(t_2_v, t_2_d)
+	t_1_v = math.floor((v_0/j)**(1/2))
 	
-		t_4 = math.ceil((d-(v_0*(2*t_1+t_2)+np.sign(v-v_0)*j*t_1*(t_1+t_2)*(t_1-1+t_2/2)))/(np.sign(v-v_0) *j*t_1*(t_1+t_2)+v_0))
-	# a_m, v_m, j_m
-	a_m = np.sign(v-v_0)*j*t_1
-	v_m = a_m * (t_1 + t_2) + v_0
-	if v_m >= v_0:
-		j_m = j
+	if t_1_a <= t_1_v:
+		t_1 = t_1_a
+		t_2 = math.floor((v_0 / (j*t_1)) - t_1)
 	else:
-		j_m = -j
+		t_1 = t_1_v
+		t_2 = 0
 
-	return [j_m, a_m, v_m , t_1, t_2, t_4]
+	#j_m
+	j_m = v_0 / (t_1*(t_1+t_2))
 
+	t_4 = max(math.ceil((d/v_0) - t_1 - t_2/2 - 1) , 0)
+	d_m = v_0 *(t_1 + t_2/2 + t_4 + 1)
+	a_m = t_1 * j_m
 
+	return [j_m, a_m, d_m , t_1, t_2, t_4]
 
 def tick(jerk, ticks, v_0):
 	t = [0]
@@ -302,23 +265,27 @@ def plot(a, v, t, c = "r"):
 
 if __name__ == '__main__':
 	
-	j = 0.0000001
-	a = 0.01
+	j = 0.001
+	a = 0.1
 	v = 0.3
-	d = 1000
-	v_0 =0.5
-	
-	j_m, a_m, v_m, t_1, t_2, t_4 = type_2(j, a, v, d, v_0)
-	jerk = [j_m,0,-j_m,0]
-	tcks = [t_1, t_2, t_1,t_4]
+	d = 20
+	v_0 =0.49
+
 
 	"""
 	j_m, a_m, v_m, t_1, t_2, t_4 = type_1(j, a, v, d, v_0)
 	jerk = [j_m,0,-j_m,0,-j_m,0,j_m]
 	tcks = [t_1, t_2, t_1,t_4,t_1,t_2 , t_1]
 	"""
+	"""
+	j_m, a_m, v_m, t_1, t_2, t_4 = type_2(j, a, v, d, v_0)
+	jerk = [j_m,0,-j_m,0]
+	tcks = [t_1, t_2, t_1,t_4]
+	"""
 
-
+	j_m, a_m, d_m, t_1, t_2, t_4 = type_3(j, a, v_0 , d)
+	jerk = [0, -j_m,0,j_m]
+	tcks = [t_4, t_1, t_2,t_1]
 
 	_a, _v, _t = tick(jerk, tcks, v_0)
 
