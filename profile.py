@@ -68,6 +68,26 @@ def tick_jerk(t_j):
 	return data
 
 """
+add segment order to each tick_jerk
+0: first interval
+1: middle interval
+2: last interval
+3: first and last interval
+"""
+def tick_jerk_segment_order(t_j):
+	l = length(t_j)
+	for i in range(length(t_j)):
+		t_j[i]["segment_order"] = 1 
+		if i == l-1 and i == 0:
+			t_j[i]["segment_order"] = 3
+		elif i == 0:
+			t_j[i]["segment_order"] = 0
+		elif i == l-1:
+			t_j[i]["segment_order"] = 2 
+
+	return t_j
+
+"""
 type_1: full s-curve
 	t_1, t_2, t_3, t_4, t_5, t_6, t_7
 	 
@@ -80,7 +100,7 @@ type_1: full s-curve
 input: j, a, v, d, v_0 
 return: j_m, a_m, v_m, t_1, t_2, t_4
 """
-def type_1(j, a, v, d, v_0 = 0):
+def profile_1(j, a, v, d, v_0 = 0):
 	
 	t_1_a = math.floor(a / j)
 	t_1_v = math.floor((abs(v-v_0)/j)**(1/2))
@@ -148,7 +168,7 @@ type_2: s-curve with no ending tail
 input: j, a, v, d, v_0 
 return: j_m, a_m, v_m, t_1, t_2, t_4
 """
-def type_2(j, a, v, d, v_0 = 0):
+def profile_2(j, a, v, d, v_0 = 0):
 	
 	t_1_a = math.floor(a / j)
 	t_1_v = math.floor((abs(v-v_0)/j)**(1/2))
@@ -224,7 +244,7 @@ type_3: only ending tail. Similar to halt
 input: j, a, v_0, d
 return: j_m, a_m, d_m, t_1, t_2, t_4
 """ 
-def type_3(j, a, d, v_0):
+def profile_3(j, a, d, v_0):
 	
 	t_1_a = math.floor(a / j)
 	t_1_v = math.floor((v_0/j)**(1/2))
@@ -299,7 +319,7 @@ if __name__ == '__main__':
 	tcks = [t_1, t_2, t_1,t_4]
 	"""
 
-	j_m, a_m, d_m, t_1, t_2, t_4 = type_3(j, a, v_0 , d)
+	j_m, a_m, d_m, t_1, t_2, t_4 = profile_3(j, a, v_0 , d)
 	jerk = [0, -j_m,0,j_m]
 	tcks = [t_4, t_1, t_2,t_1]
 

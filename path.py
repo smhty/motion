@@ -5,46 +5,74 @@ from profile import *
 prm: 
 	p_1: start
 	p_2: end
-return: [A, B, d] 
+return: A, B 
 p(t) = A +q(t)*B 
 """
-def line_prm(p_1, p_2):
-	d = np.linalg.norm(p_2-p_1)
-	a = p_1
+def path_line_prm(p_1, p_2, d):
+	A = p_1
 	if d == 0:
-		b = (p_2-p_1)
+		B = (p_2-p_1)
 	else:
-		b =  (p_2-p_1)/d		
-	return [{"type": "line", "A": a, "B": b, "d": d}]
+		B =  (p_2-p_1)/d		
+	return {"A": A, "B": B}
 
-def line_q(a, b, q):
-	return a+q*b 
+def path_line_q(A, B, q):
+	return A+q*B 
 
 """
 prm: dictionary
+	profile
+	path
+	"A"
+	"B"
+	...
+	"p_1", "p_2", "d", "r_inv"
+	"j", "a", "v", "d", "v_0"	
+	"id"
+"""
+def path_tick(prm):
+	# path
+	if prm["path"] == "line":
+		# {"A", "B"}
+		path = path_line_prm(prm["p_1"], prm["p_2"], prm["d"]) 
+
+	"""
+	profile
+	find ticks for the given d
+	{"tick_jerk": [{"t", "j"},...], "v_e": v_0, "d_m": d_m}
+	"""
+	if prm["profile"] == "profile_1":
+		profile = profile_1(prm["j"], prm["a"], prm["v"], prm["d"], prm["v_0"] )
+	elif prm["profile"] == "profile_2":
+		profile = profile_2(prm["j"], prm["a"], prm["v"], line_prm["d"], prm["v_0"] )
+	else prm["profile"] == "profile_3":
+		profile = profile_3(prm["j"], prm["a"], line_prm["d"], prm["v_0"] )
+
+
+	# segment order
+	profile["tick_jerk"] = tick_jerk_segment_order(profile["tick_jerk"])
+	
+	# profile to tick_jerk
+	for t_j in profile["tick_jerk"]:
+		tj["id"] = prm["id"]
+		tj["path"] = prm["path"]
+		tj["A"] = prm["A"]
+		tj["B"] = prm["B"]
+
+	return profile
 
 """
-def line_tick(prm):
-	# find line prm
-	# [{"type": "line", "A": a, "B": b, "d": d}]
-	line_prm = line_prm(prm["p_1"], prm["p_2"])[0]
-
-	# find ticks for the given d
-	if prm["type"] == "type_1":
-		# {"tick_jerk": [{"t", "j"},...], "v_e": v_0, "d": d_m}
-		result = type_1(prm["j"], prm["a"], prm["v"], line_prm["d"], prm["v_0"] )
-	elif prm["type"] == "type_2":
-		result = type_2(prm["j"], prm["a"], prm["v"], line_prm["d"], prm["v_0"] )
-	elif prm["type"] == "type_3":
-		result = type_3(prm["j"], prm["a"], line_prm["d"], prm["v_0"] )
-	else:
-		return False
-
-	data = []
-	for tj in result["tick_jerk"]:
-		
-
-
+prm:
+	p_1: start
+	C: center
+	V: vector perpendicular to p_1-C and length r: sets the move direction and circle plane  
+return: [A, B, C]
+p(t) = A +B*cons(theta)+C*sin(theta)  
+"""
+def circle_prm(p_1, C, r):
+	if p_1 == C:
+		return 
+	return [{"type": "circle", "A": C, "B": p_1-C, "C": V, "r_inv": r_inv}]	
 
 """
 prm:
@@ -55,12 +83,54 @@ prm:
 return: [A, B, C]
 p(t) = A +B*cons(theta)+C*sin(theta)  
 """
-def circle_prm(p_1, p_2, p_3, d, r_inv):
-	return [{"type": "circle", "prm":[p_1, p_2-p_1, p_3], "distance": d, "r_inv": r_inv}]	
+def circle_prm_copy(p_1, p_2, p_3, d, r_inv):
+	return [{"type": "circle", "A": p_1, "B": p_2-p_1, "C": p_3, "d": d, "r_inv": r_inv}]	
+
+
 
 def circle_q(a, b, c,r_inv, q):
 	theta = q*r_inv
 	return a + b*np.cos(theta)+c*np.sin(theta)
+
+"""
+prm: dictionary
+	profile
+	path
+	"A"
+	"B"
+	...
+	"p_1", "p_2", "d", "r_inv"
+	"j", "a", "v", "d", "v_0"	
+
+
+"""
+def circle_tick(prm):
+	# find line prm
+	# [{"type": "circl", "A": a, "B": b, "d": d}]
+	if prm["path"] == "circle":
+		path = circle_prm("p_1", "p_2", "p_3", d, r_inv)[0]
+
+	# find ticks for the given d
+	if prm["profile"] == "profile_1":
+		# {"tick_jerk": [{"t", "j"},...], "v_e": v_0, "d": d_m}
+		profile = profile_1(prm["j"], prm["a"], prm["v"], prm["d"], prm["v_0"] )
+	elif prm["profile"] == "profile_2":
+		profile = profile_2(prm["j"], prm["a"], prm["v"], line_prm["d"], prm["v_0"] )
+	elif prm["profile"] == "profile_3":
+		profile = profile_3(prm["j"], prm["a"], line_prm["d"], prm["v_0"] )
+	else:
+		return False
+
+	# add segment order
+
+	result["tick_jerk"] = tick_jerk_segment_order(result["tick_jerk"])
+	for tj in result["tick_jerk"]:
+		tj["id"] = prm["id"]
+		tj["type"] = prm["type"]
+		tj["A"] = prm["A"]
+		tj["B"] = prm["B"]
+	
+	return result
 
 
 """
