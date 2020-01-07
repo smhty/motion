@@ -18,10 +18,7 @@ given
 goal
 	find t_1, t_2, t_3, t_4, t_5, t_6, t_7	
 
-
-
 concatinate different motions together and form a smooth motion profile
-
 
 motion_0 (j_0, a_0, v_0, d_0): start ramp up and achieve the max speed, and exit this motion with max speed,
 d_0 and zero accelaration
@@ -33,8 +30,6 @@ d_1 and zero accelaration
 last motion
 motion_e (j_e, a_e, v_e, d_e): start ramp up and achieve the max speed, and exit this motion with max speed,
 d_1 and zero accelaration 
-
-
 
 type_2: s-curve with no ending tail
 	t_1, t_2, t_3, t_4
@@ -56,6 +51,19 @@ import math
 import matplotlib.pyplot as plt
 import time
 import numpy as np
+
+def tick(jerk, ticks, v_0):
+	t = [0]
+	v = [v_0]
+	a = [0]
+	
+	for i in range(len(jerk)):
+		p = 0
+		for j in range(ticks[i]):
+			t.append(t[-1] + v[-1])
+			v.append(v[-1] + a[-1])
+			a.append(a[-1] + jerk[i])
+	return [a[1:], v[1:], t[1:]]
 
 """
 remove intervals with no ticks
@@ -118,11 +126,13 @@ def profile_1(j, a, v, d, v_0 = 0):
 			t_1_d = math.floor(roots[1]) 
 	# find t_1_a
 	t_1 = min(t_1_a, t_1_v, t_1_d)
+	t_1 = max(0, t_1)
 	t_2 = 0
 	
 	if t_1 == 0:
 		if v_0 > 0: 
 			t_4 = math.ceil(d/v_0)
+			t_4 = max(0, t_4)
 		else: 
 			t_4 = 0
 		j_m = 0
@@ -132,7 +142,7 @@ def profile_1(j, a, v, d, v_0 = 0):
 
 			t_2_v = math.floor((abs(v-v_0) / (j*t_1)) - t_1)
 			#t_2_d
-			roots = [ np.real(x) for x in np.roots([np.sign(v-v_0) *j*t_1, np.sign(v-v_0)*3*j*(t_1**2)+2*v_0, np.sign(v-v_0) *j*(t_1**3)+4*v_0*t_1 -d]) if np.isreal(x)]
+			roots = [ np.real(x) for x in np.roots([np.sign(v-v_0) *j*t_1, np.sign(v-v_0)*3*j*(t_1**2)+2*v_0, np.sign(v-v_0)*2*j*(t_1**3)+4*v_0*t_1 -d]) if np.isreal(x)]
 			roots.sort()
 			if v >= v_0:
 				# positive j
@@ -143,19 +153,19 @@ def profile_1(j, a, v, d, v_0 = 0):
 					t_2_d = math.floor(((-3*j*(t_1**2) + 2*v_0)/(2*j*t_1))**(1/2))
 				else:
 					t_2_d = math.floor(roots[0])
-
 			t_2 = min(t_2_v, t_2_d)
+			t_2 = max(t_2, 0)
 	
 		t_4 = math.ceil((d - (2*t_1 + t_2)*(2*v_0 + np.sign(v-v_0) * j*t_1*(t_1+t_2)))/(np.sign(v-v_0) *j*t_1*(t_1+t_2)+v_0)) 
+		t_4 = max(t_4, 0)
 		j_m = (d- v_0 * (4*t_1 + 2*t_2 + t_4))/(t_1 * (t_1 + t_2) * (2*t_1 + t_2 + t_4))
 
 	# a_m, v_m, j_m
 	a_m = j_m*t_1
 	v_m = a_m * (t_1 + t_2) + v_0
 	d_m = (v_m - v_0)*(2*t_1 + t_2 + t_4) + v_0 * (4*t_1 + 2*t_2 + t_4)
-
 	t_j = [[t_1, j_m], [t_2, 0], [t_1, -j_m], [t_4, 0], [t_1,-j_m], [t_2, 0], [t_1, j_m]]
-	return {"tick_jerk": tick_jerk(t_j), "v_e": v_0, "d": d_m}
+	return {"tick_jerk": t_j, "v_e": v_0, "d": d_m}
 
 """
 type_2: s-curve with no ending tail
@@ -186,11 +196,13 @@ def profile_2(j, a, v, d, v_0 = 0):
 			t_1_d = math.floor(roots[1]) 
 	# find t_1_a
 	t_1 = min(t_1_a, t_1_v, t_1_d)
+	t_1 = max(0, t_1)
 	t_2 = 0
 
 	if t_1 == 0:
 		if v_0 > 0: 
 			t_4 = math.ceil(d/v_0)
+			t_4 = max(0, t_4)
 		else: 
 			t_4 = 0 
 		j_m = 0
@@ -213,17 +225,20 @@ def profile_2(j, a, v, d, v_0 = 0):
 					t_2_d = math.floor(roots[0])
 
 			t_2 = min(t_2_v, t_2_d)
+			t_2 = max(0, t_2)
 	
 		t_4 = math.ceil((d-(v_0*(2*t_1+t_2)+np.sign(v-v_0)*j*t_1*(t_1+t_2)*(t_1-1+t_2/2)))/(np.sign(v-v_0) *j*t_1*(t_1+t_2)+v_0))
+		t_4 = max(0, t_4)
 		j_m = (d - v_0 * (2*t_1 + t_2 + t_4)) / (t_1 * (t_1 + t_2) * (t_1 + t_2/2 + t_4 - 1)) 		
+	
 	# a_m, v_m, j_m
 	a_m = j_m*t_1
 	v_m = a_m * (t_1 + t_2) + v_0
 	d_m = (v_m - v_0)* (t_1 + t_2 /2 + t_4 - 1) + v_0 * (2*t_1 + t_2 + t_4)
 
 	t_j = [[t_1, j_m], [t_2, 0], [t_1, -j_m], [t_4, 0]]
-	return {"tick_jerk": tick_jerk(t_j), "v_e": v_m, "d": d_m}
-
+	#return {"tick_jerk": tick_jerk(t_j), "v_e": v_m, "d": d_m}
+	return {"tick_jerk": t_j, "v_e": v_m, "d": d_m}
 
 """
 type_3: only ending tail. Similar to halt
@@ -239,46 +254,48 @@ type_3: only ending tail. Similar to halt
 	fit is false: The d constraint is not necessarily, and keep the j to its limit.
 
 	a_m = j * t_1 < a
-	v_m = a_m (t_1 + t_2) = v_0
+	v_s = a_m (t_1 + t_2) = v_0
 	d_m = j * t_1 * (t_1 + t_2)* (t_1 + t_2 /2 + t_4 + 1) = d
+	v_s*(t_1 + t_2 /2 + t_4 + 1) = d
 input: j, a, v_0, d
 return: j_m, a_m, d_m, t_1, t_2, t_4
 """ 
 def profile_3(j, a, d, v_0):
-	
 	t_1_a = math.floor(a / j)
 	t_1_v = math.floor((v_0/j)**(1/2))
 	t_1_d = math.floor((d/v_0)-1)
 
 	# find t_1 and set t_2
 	t_1 = min(t_1_a, t_1_v, t_1_d)
+	t_1 = max(0, t_1)
 	t_2 = 0
 
 	if t_1 == 0:
 		if v_0 > 0: 
 			t_4 = math.ceil(d/v_0) - 1
+			t_4 = max(0, t_4)
 		else: 
 			t_4 = 0 
 		j_m = 0
 	else:
 		if t_1_a <= min(t_1_v, t_1_d):
 			t_2_v = math.floor((v_0 / (j*t_1)) - t_1)
-			t_2_d =  t_1_d - t_1
+			t_2_d = 2*(t_1_d - t_1)
 
 			# t_2
 			t_2 = min(t_2_v, t_2_d)
+			t_2 = max(0, t_2)
 		
 		# t4
 		t_4 = math.ceil((d/v_0) - t_1 - t_2/2 - 1)
-		j_m = d / (t_1 * (t_1 + t_2)* (t_1 + t_2 /2 + t_4 + 1))
+		t_4 = max(0, t_4)
+		j_m = v_0 / (t_1 * (t_1 + t_2))
 	#j_m
 	a_m = j_m*t_1
-	v_m = 0
-	
+	v_m = a_m * (t_1 + t_2)
+	d_m = j_m* t_1 * (t_1 + t_2)* (t_1 + t_2 /2 + t_4 + 1) 
 	t_j = [[t_4, 0], [t_1, -j_m], [t_2, 0], [t_1, j_m]]
-	return {"tick_jerk": tick_jerk(t_j), "v_e": 0, "d": d_m}
-
-
+	return {"tick_jerk": t_j, "v_e": 0, "d": d_m}
 
 
 def plot(a, v, t, c = "r"):
@@ -301,12 +318,11 @@ def plot(a, v, t, c = "r"):
 
 if __name__ == '__main__':
 	
-	j = 0.00000001
-	a = 0.00000001
+	j = 2.0e-10
+	a = 1.0e-5
 	v = 0.5
-	d = 1
-	v_0 =0.5
-
+	d = 10000
+	v_0 =0
 
 	"""
 	j_m, a_m, v_m, t_1, t_2, t_4 = type_1(j, a, v, d, v_0)
@@ -318,7 +334,7 @@ if __name__ == '__main__':
 	jerk = [j_m,0,-j_m,0]
 	tcks = [t_1, t_2, t_1,t_4]
 	"""
-
+	"""
 	j_m, a_m, d_m, t_1, t_2, t_4 = profile_3(j, a, v_0 , d)
 	jerk = [0, -j_m,0,j_m]
 	tcks = [t_4, t_1, t_2,t_1]
@@ -326,3 +342,12 @@ if __name__ == '__main__':
 	_a, _v, _t = tick(jerk, tcks, v_0)
 
 	plot(_a, _v, _t)
+	"""
+	result = profile_1(j, a, v, d, v_0)
+	print(result)
+	jerk = [x[1] for x in result["tick_jerk"]]
+	ticks = [x[0] for x in result["tick_jerk"]]
+	#print("number of ticks: ", sum(ticks))
+	a, v, q = tick(jerk, ticks, v_0)
+
+	print(q[-1], v[-1])
