@@ -41,6 +41,7 @@ class kinematic(object):
 	"""
 	def ik(self, xyz):
 		joint = []
+		
 		# make a copy
 		xyz = [x for x in xyz]
 		xyz[3] = math.radians(xyz[3])
@@ -50,7 +51,7 @@ class kinematic(object):
 			# j0
 			joint.append(math.atan2(y, x))
 		
-			# next we assume base is not rotated and everything lives in x-z plane
+			# next we assume base is not rotated and everything lies on x-z plane
 			xyz[0] = math.sqrt(xyz[0] ** 2 + xyz[1] ** 2)
 
 			# next we update x and z based on base dimensions and hand orientation
