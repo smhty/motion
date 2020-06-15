@@ -16,66 +16,92 @@ class kinematic(object):
 		super(kinematic, self).__init__()
 		# l matrix
 		self.l = l
-		
+		self.e = 0.001
+	
+
 	"""
 	forward kinematics: joint to xyz
 	"""
-	def fk(self, joint):
+	def forward(self, joint):
 		# joint to radian
 		joint = [math.radians(j) for j in joint]
 
 		# first we find x, y, z assuming base rotation is zero (j_0 = 0). Then we rotate everything
 		# then we rotate the robot around z axis for j_0
-		tmp_d = self.l[0][0] + self.l[1][0] * math.cos(joint[1]) + self.l[2][0] * math.cos(joint[1] + joint[2]) + self.l[4][2] * math.cos(joint[1]+joint[2]+joint[3])
-		x = tmp_d * math.cos(joint[0])
-		y = tmp_d * math.sin(joint[0])
-		z = self.l[0][2] + self.l[1][0] * math.sin(joint[1]) + self.l[2][0] * math.sin(joint[1] + joint[2]) + self.l[4][2] * math.sin(joint[1] + joint[2] + joint[3])
 		a = joint[1] + joint[2] + joint[3]
 		b = joint[4]
-		
+		tmp_d = self.l[0][0] + self.l[1][0] * math.cos(joint[1]) + self.l[2][0] * math.cos(joint[1] + joint[2]) + self.l[4][2] * math.cos(a)
+		x = tmp_d * math.cos(joint[0])
+		y = tmp_d * math.sin(joint[0])
+		z = self.l[0][2] + self.l[1][0] * math.sin(joint[1]) + self.l[2][0] * math.sin(joint[1] + joint[2]) + self.l[4][2] * math.sin(a)
+
 		return [x, y, z, a, b]
 
 
 	"""
 	inverse kinematics: xyz to joint
 	"""
-	def ik(self, xyz):
-		joint = []
+	def inverse(self, xyz):
+		x = xyz[0]
+		y = xyz[1]
+		z = xyz[2]
+		a = math.radians(xyz[3])
+		b = math.radians(xyz[4])
 		
-		# make a copy
-		xyz = [x for x in xyz]
-		xyz[3] = math.radians(xyz[3])
-		xyz[4] = math.radians(xyz[4])		
+		joint = []	
 		
 		try:
-			# j0
-			joint.append(math.atan2(y, x))
-		
-			# next we assume base is not rotated and everything lies on x-z plane
-			xyz[0] = math.sqrt(xyz[0] ** 2 + xyz[1] ** 2)
+			# first we find the base rotation
+			theta_0 = math.atan2(y, x)
+
+			# next we assume base is not rotated and everything lives in x-z plane
+			x = math.sqrt(x ** 2 + y ** 2)
 
 			# next we update x and z based on base dimensions and hand orientation
-			xyz[0] -= (self.l[0][0] + self.l[4][2] * math.cos(xyz[3]))
-			xyz[2] -= (self.l[0][2] + self.l[4][2] * math.sin(xyz[3]))
+			x -= (self.l[0][0] + self.l[4][2] * math.cos(a))
+			z -= (self.l[0][2] + self.l[4][2] * math.sin(a))
 
 			# at this point x and z are the summation of two vectors one from lower arm and one from upper arm of lengths l1 and l2
 			# let L be the length of the overall vector
 			# we can calculate the angle between l1 , l2 and L
-			L = math.sqrt(xyz[0] ** 2 + xyz[2] ** 2)
-		
+			L = math.sqrt(x ** 2 + z ** 2)
+			
 			# not valid
-			if L > (self.l[1][0] + self.[2][0]) or self.l[1][0] > (self.l[2][0] + L) or self.l[2][0] > (self.l[1][0] + L):  # in this case there is no solution
-				return None
+			if L > (self.l[1][0] + self.l[2][0]) - self.e or self.l[1][0] > (self.l[2][0] + L) - self.e: # in this case there is no solution
+				return joint
 
 
-			teta_l1_L = math.acos((self.l[1][0] ** 2 + L ** 2 - self.l[2][0] ** 2) / (2 * self.l[1][0] * L))  # l1 angle to L
-			teta_L_x = math.atan2(xyz[2], xyz[0])  # L angle to x axis
-			joint.append(teta_l1_L + teta_L_x)
-			# note that the other solution would be to set teta_1 = teta_L_x - teta_l1_L. But for the dynamics of the robot the first solution works better.
-			teta_l1_l2 = math.acos((self.l[1][0] ** 2 + self.l[2][0] ** 2 - L ** 2) / (2 * self.l[1][0] * self.l[2][0]))  # l1 angle to l2
-			joint.append(teta_l1_l2 - math.pi)
-			joint.append(xyz[3] - joint[1] - joint[2])
-			joint.append(xyz[4])
-			joint = [math.degrees(x) for x in joint]
+			theta_l1_L = math.acos((self.l[1][0] ** 2 + L ** 2 - self.l[2][0] ** 2) / (2 * self.l[1][0] * L))  # l1 angle to L
+			theta_L_x = math.atan2(z, x)  # L angle to x axis
+			theta_1_0 = theta_L_x + theta_l1_L
+			theta_1_1 = theta_L_x - theta_l1_L
+
+			theta_l1_l2 = math.acos((self.l[1][0] ** 2 + self.l[2][0] ** 2 - L ** 2) / (2 * self.l[1][0] * self.l[2][0]))  # l1 angle to l2
+			theta_2_0 = theta_l1_l2 - math.pi
+			theta_2_1 = -(theta_l1_l2 - math.pi)
+
+			theta_3_0 = a - theta_1_0 - theta_2_0
+			theta_3_1 = a - theta_1_1 - theta_2_1
+
+			joint = [[theta_0, theta_1_0, theta_2_0, theta_3_0, b],[theta_0, theta_1_1, theta_2_1, theta_3_1, b]]
+			joint = [[math.degrees(j) for j in joint[0]], [math.degrees(j) for j in joint[1]]]
+
+		except:
+			pass
 
 		return joint
+
+
+if __name__ == '__main__':
+	l = [[3.76, 0, 8.11],
+		[8, 0 , 0],
+		[6, 0 , 0],
+		[0, 0 , 0],
+		[0, 0, 1.72]
+	]
+
+	k = kinematic(l)	
+
+	print(k.forward((0, 0 ,0 ,0, 0)))
+
+	print(k.inverse([17, 0.0, 8.11, 0.0, 0.0]))
