@@ -28,12 +28,12 @@ class kinematic(object):
 
 		# first we find x, y, z assuming base rotation is zero (j_0 = 0). Then we rotate everything
 		# then we rotate the robot around z axis for j_0
-		a = joint[1] + joint[2] + joint[3]
-		b = joint[4]
-		tmp_d = self.l[0][0] + self.l[1][0] * math.cos(joint[1]) + self.l[2][0] * math.cos(joint[1] + joint[2]) + self.l[4][2] * math.cos(a)
+		a = math.degrees(joint[1] + joint[2] + joint[3])
+		b = math.degrees(joint[4])
+		tmp_d = self.l[0][0] + self.l[1][0] * math.cos(joint[1]) + self.l[2][0] * math.cos(joint[1] + joint[2]) + self.l[4][2] * math.cos(joint[1] + joint[2] + joint[3])
 		x = tmp_d * math.cos(joint[0])
 		y = tmp_d * math.sin(joint[0])
-		z = self.l[0][2] + self.l[1][0] * math.sin(joint[1]) + self.l[2][0] * math.sin(joint[1] + joint[2]) + self.l[4][2] * math.sin(a)
+		z = self.l[0][2] + self.l[1][0] * math.sin(joint[1]) + self.l[2][0] * math.sin(joint[1] + joint[2]) + self.l[4][2] * math.sin(joint[1] + joint[2] + joint[3])
 
 		return [x, y, z, a, b]
 
@@ -102,6 +102,9 @@ if __name__ == '__main__':
 
 	k = kinematic(l)	
 
-	print(k.forward((0, 0 ,0 ,0, 0)))
+	joint = [45 for i in range(5)]
+	xyz = k.forward(joint)
+	joint = k.inverse(xyz)
 
-	print(k.inverse([17, 0.0, 8.11, 0.0, 0.0]))
+	print(xyz)
+	print(joint)
