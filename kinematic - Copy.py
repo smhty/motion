@@ -2,24 +2,8 @@ import math
 import profile
 import numpy as np
 import matplotlib.pyplot as plt
-import json
-class motor(object):
-	"""docstring for motor"""
-	def __init__(self, micro_step = 4000):
-		super(motor, self).__init__()
-		self.micro_step = micro_step
 
-	def joint_to_motor(self, joint):
-		return [
-			-joint[0] * 16.0 * self.micro_step / 360.0,
-			-joint[1] * 20.0 * self.micro_step / 360.0,
-			-joint[2] * 20.0 * self.micro_step / 360.0,
-			((-joint[3] + joint[4]) / 360.0) * (self.micro_step * 4.0),
-			((joint[3] + joint[4]) / 360.0) * (self.micro_step * 4.0),
-			0.0,
-			0.0,
-			0.0,			
-		]
+
 """
 use kinematic.jpg 
 all dimensions are in mm
@@ -203,9 +187,9 @@ initailly v[-1] is zero
 in each segment do the following:
 
 main equation: 
-q[n] =n * v + n*(n-1) * a/2 + n*(n-1)*(n+2)*j/6
-v[n] =        v +     n * a +      n*(n-1)* j/2 	
-a[n] =                        a +       n * j 	
+q[n] =(n+1) * v + n*(n+1) * a/2 + (n-1)*n*(n+1)*j/6
+v[n] =        v +     (n+1) * a +      n*(n+1)* j/2 	
+a[n] =                        a +       (n+1) * j 	
 
 *v, a, j are the last parameter, *[T-1] from previous segment
 
@@ -220,48 +204,8 @@ class path(object):
 	def __init__(self):
 		super(path, self).__init__()
 		self.kinematic = kinematic()
-		self.motor = motor()
 	
-
-	"""
-	give start and end in xyz plane
-	d_s is the sampeling distance, default is 1mm
-
-	start sampeling in xyz and convert it to joint space
-	sum all the dsitance in joint space and find the associated profile
-
-	"""
-	def line(self, xyz_s, xyz_e, j, a, v, d_s = 1):
-		xyz_s = np.array(xyz_s)
-		xyz_e = np.array(xyz_e)
-
-		# distance
-		d = np.linalg.norm(xyz_e-xyz_s)
-
-		# get the motors
-		motor_sample = []
-		for i in range(math.floor(d/d_s)):
-			xyz = xyz_s + i*d_s*(xyz_e - xyz_s)/d
-			joint_xyz = np.array(self.kinematic.inverse(xyz)[0])
-			motor_xyz =np.array(self.motor.joint_to_motor(joint_xyz))
-			motor_sample.append(motor_xyz)
-		xyz = xyz_e	
-		joint_xyz = np.array(self.kinematic.inverse(xyz)[0])
-		motor_xyz =np.array(self.motor.joint_to_motor(joint_xyz))
-		motor_sample.append(motor_xyz)
-
-		# find total distance
-		d_motor = [np.linalg.norm(motor_sample[i+1]-motor_sample[i]) for i in range(len(motor_sample) - 1)]
-		d_motor = sum(d_motor)
-
-		# find profile for this distance
-		result = profile.profile_1(j, a, v, d_motor, v_0)
-		list_jerk = [x[1] for x in result["tick_jerk"]]
-		list_tick = [x[0] for x in result["tick_jerk"]]
-		a, v, q = profile.tick(list_jerk, list_tick, v_0)
-
-
-	def line_2(self, xyz_s, xyz_e, j, a, v, t_s = 100, v_0 = 0):
+	def line(self, xyz_s, xyz_e, j, a, v, t_s = 100, v_0 = 0):
 		xyz_s = np.array(xyz_s)
 		xyz_e = np.array(xyz_e)
 
@@ -290,113 +234,67 @@ class path(object):
 		list_tvaj = [] 		
 		
 		# v[-1]
-		v_s = 0
+		v_m_1 = 0
 
 		# joint p[0] of next segment
-		p_e = np.array(self.kinematic.inverse(xyz_s)[0])
-		p_e = np.array(self.motor.joint_to_motor(p_e))
+		p_0_f = self.kinematic.inverse(xyz_s + q[0]*(xyz_e - xyz_s)/d)[0]
+		p_0_f = np.array(p_0_f)
 
 		total_distance = 0
-
 		for i in range(number_of_segments):
 			# update p_0 (p start)
-			p_s = np.array(p_e)
+			p_s = np.array(p_0_f)
 			
 			# update p_e and p_0_f
 			if i < number_of_segments - 1:
-				p_e = np.array(self.kinematic.inverse(xyz_s + q[(i+1)*t_s]*(xyz_e - xyz_s)/d)[0])
-				p_e =np.array(self.motor.joint_to_motor(p_e))
-
-				p_e_1 = np.array(self.kinematic.inverse(xyz_s + q[(i+1)*t_s - 1]*(xyz_e - xyz_s)/d)[0])
-				p_e_1 =np.array(self.motor.joint_to_motor(p_e_1)) 
+				p_e = np.array(self.kinematic.inverse(xyz_s + q[(i+1)*t_s - 1]*(xyz_e - xyz_s)/d)[0]) 
+				p_0_f = np.array(self.kinematic.inverse(xyz_s + q[(i+1)*t_s]*(xyz_e - xyz_s)/d)[0]) 
 				t = t_s 
 			else:
-				p_e = np.array(self.kinematic.inverse(xyz_s + q[- 1]*(xyz_e - xyz_s)/d)[0])
-				p_e =np.array(self.motor.joint_to_motor(p_e))
-
-				p_e_1 = np.array(self.kinematic.inverse(xyz_s + q[- 2]*(xyz_e - xyz_s)/d)[0])
-				p_e_1 =np.array(self.motor.joint_to_motor(p_e_1))
+				p_e = np.array(self.kinematic.inverse(xyz_s + q[- 1]*(xyz_e - xyz_s)/d)[0])  
+				p_0_f = np.array(self.kinematic.inverse(xyz_e)[0])
 				t = len(q) - i*t_s				
 
 			# q(t_1)
-			d_e = np.linalg.norm(p_e - p_s)
-			total_distance += d_e 
+			q_t_1 = np.linalg.norm(p_e - p_s) 
+			total_distance += q_t_1 
 			
 			#v[T-1]
-			v_e_1 = np.linalg.norm(p_e - p_e_1)
+			v_t_1 = np.linalg.norm(p_0_f - p_e)
 
-			inv = np.linalg.inv([[t*(t-1)/2 , t*(t-1)*(t-2)/6], [t-1, (t-1)*(t-2)/2]])
-			ans = np.matmul(inv, np.array([[d_e - t* v_s],[v_e_1 - v_s]]))
+			inv = np.linalg.inv([[t*(t-1)/2 , t*(t-1)*(t-2)/6], [t, t*(t-1)/2]])
+			#inv = np.linalg.inv([[t*(t+1)/2 , t*(t+1)*(t-1)/2], [t , t*(t+1)/2]]) 
+			#ans = np.matmul(inv, np.array([[q_t_1 - v_m_1],[v_t_1 - v_m_1]]))
+			ans = np.matmul(inv, np.array([[q_t_1 - t* v_m_1],[v_t_1 - v_m_1]]))
 
 			# t, v, a, j
-			tvaj = [t, v_s, ans[0][0], ans[1][0], p_s, p_e]
-			list_tvaj.append(tvaj)
-			
-			cmd = {
-				"cmd": "raw",
-				"t": t,
-				"v": v_s,
-				"a": ans[0][0],
-				"j": ans[1][0],
-				"p0": p_s[0],
-				"p1": p_s[1],
-				"p2": p_s[2],
-				"p3": p_s[3],
-				"p4": p_s[4],
-				"p5": 0,
-				"p6": 0,
-				"p7": 0,
-				"q0": p_e[0],
-				"q1": p_e[1],
-				"q2": p_e[2],
-				"q3": p_e[3],
-				"q4": p_e[4],
-				"q5": 0,
-				"q6": 0,
-				"q7": 0,
-			}
-			
-			print(json.dumps(cmd))
-			#print(tvaj[0], tvaj[1], tvaj[2], tvaj[3],  p_s[0], p_s[1], p_s[2], p_s[3], p_s[4], 0, 0,0, p_e[0], p_e[1], p_e[2], p_e[3], p_e[4], 0, 0, 0)
-
-
-			# update v_s
-			v_s += t*ans[0][0] + t*(t-1)* ans[1][0]/2
+			list_tvaj.append([t, v_m_1, ans[0][0], ans[1][0]])
+			print(t,",",ans[0][0],",",ans[1][0])
+			# update v_m
+			#v_m_1 += (t-1) * ans[0][0] +    t*(t-1)* ans[1][0]/2
+			v_m_1 = v_t_1  
 
 		return list_tvaj
 
 def main_1():
-	j = 2.0e-11
-	a = 1.0e-7
-	v = 0.01
+	j = 2.0e-10
+	a = 1.0e-5
+	v = 0.45
 	v_0 = 0
-	t_s = 1000
-	joint_s = [0, 30, -30, 0, 0] 
-	d = 70
+	t_s = 200
+	joint_s = [0, 0, 0, 0, 0] 
+	d = 100
 	
 	p = path()
 	xyz_s = p.kinematic.forward(joint_s) 
 	xyz_e = list(xyz_s)
 	xyz_e[0] -= d
-
+	
 	# list_tvaj
 	result = p.line(xyz_s, xyz_e, j, a, v, t_s, v_0)
-	result = p.line(xyz_e, xyz_s, j, a, v, t_s, v_0)
+
 	
 	# plot
-
-	v_sample = [r[2] for r in result]
-	plt.figure(1)
-	
-	plt.subplot(111)
-	plt.plot(v_sample, 'o-')
-	plt.title("q_end "+ str(v_sample[-1]) )
-	
-
-	plt.show()	
-	
-
-	a_sample = []
 	v_l = [0]
 	a_l = [0]
 	q_l = [0]
@@ -408,12 +306,13 @@ def main_1():
 			q_l.append(q_l[-1] + v_l[-1])
 			v_l.append(v_l[-1] + a_l[-1])
 			a_l.append(a_l[-1] + j_m)
-		a_sample += a_l
+	
+	q_l = [math.ceil(400*x) for x in q_l]
 	plt.figure(1)
 	
 	plt.subplot(211)
-	plt.plot(a_sample, 'o-')
-	plt.title("q_end "+ str(a_sample[-1]) )
+	plt.plot(q_l, 'o-')
+	plt.title("q_end "+ str(q_l[-1]) )
 
 	plt.subplot(212)
 	plt.plot(v_l, 'o-')
@@ -422,6 +321,7 @@ def main_1():
 
 	plt.show()
 
+	
 	"""
 	# plot
 	v_l = [r[1] for r in result]
@@ -435,12 +335,11 @@ def main_1():
 	plt.show()	
 	"""
 def main_2():
-	joint = [45, 45, 45, 45, 45]
+	joint = [0, 0, 0, 0, 0]
 	k = kinematic()
 	xyz = k.forward(joint)
 
-	print(xyz)
-	print(k.inverse([400.05469,   0,      200.09099,   0,        0.     ]))
+	print(k.inverse(xyz))
 
 if __name__ == '__main__':
 

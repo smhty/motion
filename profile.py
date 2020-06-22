@@ -52,18 +52,17 @@ import matplotlib.pyplot as plt
 import time
 import numpy as np
 
-def tick(jerk, ticks, v_0):
-	t = [0]
+def tick(jerk, ticks, v_0 = 0, a_0 = 0):
+	q = [0]
 	v = [v_0]
-	a = [0]
+	a = [a_0]
 	
 	for i in range(len(jerk)):
-		p = 0
 		for j in range(ticks[i]):
-			t.append(t[-1] + v[-1])
+			q.append(q[-1] + v[-1])
 			v.append(v[-1] + a[-1])
 			a.append(a[-1] + jerk[i])
-	return [a[1:], v[1:], t[1:]]
+	return [a[1:], v[1:], q[1:]]
 
 """
 remove intervals with no ticks
@@ -320,8 +319,8 @@ if __name__ == '__main__':
 	
 	j = 2.0e-10
 	a = 1.0e-5
-	v = 0.5
-	d = 10000
+	v = 0.45
+	d = 100000
 	v_0 =0
 
 	"""
@@ -347,7 +346,7 @@ if __name__ == '__main__':
 	print(result)
 	jerk = [x[1] for x in result["tick_jerk"]]
 	ticks = [x[0] for x in result["tick_jerk"]]
-	#print("number of ticks: ", sum(ticks))
+	print("number of ticks: ", sum(ticks))
 	a, v, q = tick(jerk, ticks, v_0)
 
-	print(q[-1], v[-1])
+	print(len(q))
