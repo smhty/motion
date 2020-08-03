@@ -305,34 +305,26 @@ def profile_no_jerk(a, vm, d, factor = 1):
 	d = d+ 0.01
 	# find n1 = 2*t1 + t2
 	n1 = math.floor(vm/a)
+	# find t4
+	t4 = math.floor(d/vm) - n1	
 	# adjust vm
 	if vm * n1 > d:
 		vm = d / n1
-	# find t4
-	t4 = math.floor(d/vm) - n1
 	# find t1, t2
 	# make sure t1 is not zero
 	t1 = math.floor(n1/(2+factor))+ 1
 	t2 = math.floor(factor*t1)
 	"""
-	a_m = j_m*t_1
-	v_m = a_m * (t_1 + t_2) + v_0
-	d_m = (v_m - v_0)*(2*t_1 + t_2 + t_4) + v_0 * (4*t_1 + 2*t_2 + t_4)
-
-	"""
-	
-	"""
 	vm = t1*(t1+t2)*jm
-	d = jm* t1*(t1+t2) * (t1 + t2 /2 + t4)
-	jm = d/ (t1*(t1+t2) * (t1 + t2 /2 + t4)) 	
+	d = jm* t1*(t1+t2) * (2*t1 + t2 + t4)
+	jm = d/ (t1*(t1+t2) * (2*t1 + t2 + t4)) 	
 	"""
-	#print("###d: ", jm* t1*(t1+t2) * (t1 + t2 /2 + t4))
 	# find jerk
 	jm = d/ (t1*(t1+t2) * (2*t1 + t2 + t4))
 	# tick and jerk
 	t_j = [[t1, jm], [t2, 0], [t1, -jm], [t4, 0], [t1,-jm], [t2, 0], [t1, jm]]
 	
-	return {"tick_jerk": t_j, "d": d}
+	return {"tick_jerk": t_j, "d": d, "v_e": 0}
 
 
 """
