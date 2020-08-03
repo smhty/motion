@@ -1,6 +1,244 @@
 import numpy as np
+import math
 import matplotlib.pyplot as plt
-from profile import *
+import profile
+import kinematic
+import json
+		
+
+class linear(object):
+	"""docstring for linear"""
+	def __init__(self, point_s, point_e):
+		super(linear, self).__init__()
+		self.d = np.linalg.norm(point_e - point_s)
+		self.a = np.array(point_s)
+		self.b = (point_e - point_s) / self.d		
+		
+
+	def traverse(self, q):
+		return self.a + q * self.b
+
+
+class circular(object):
+	"""docstring for linear"""
+	def __init__(self, point_s, point_m, point_e, turn = 0, dim = 3):
+
+		super(circular, self).__init__()
+		
+
+
+		A = np.array(point_s[0:dim])
+		B = np.array(point_e[0:dim])
+		C = np.array(point_m[0:dim])
+		
+		a = A - C
+		b = B - C
+
+		# center of circle
+		a_a = np.inner(a, a)
+		b_b = np.inner(b, b)
+		a_b = np.inner(a, b)
+
+		p0 = (b_b * (a_a - a_b) * a) - (a_a * (a_b - b_b) * b)
+		p0 = p0 / (2* (a_a * b_b - a_b**2))
+		p0 = p0 + C   
+
+		# radius
+		r = np.linalg.norm(A-p0)
+
+		# traverse vector
+		r1 = A - p0
+		r2 = B - p0
+		r1_r2 = np.inner(r1, r2)
+		r3 = r2 -  (r1* r1_r2/(r**2)) 
+		r4 = r3 *(r/np.linalg.norm(r3))
+		r5 = C - p0
+
+		# find t_b and t_c
+		cos_t_b = min(max(-1, r1_r2 / r**2), 1) 
+		t_b = np.arccos(cos_t_b)
+		
+		# adjust r4 and t_b
+		if np.inner(r5,r4) < 0:
+			r4 = -r4
+			t_b = 2*math.pi - t_b
+		elif np.arccos(min(max(-1, np.inner(r1,r5) / r**2), 1)) > t_b:
+			r4 = -r4
+			t_b = 2*math.pi - t_b
+
+		# distance
+		print(t_b)
+		d = r * (2*turn*math.pi + t_b)
+
+		#print(p0, r1, r4, d, r)
+		self.d = d
+		self.r = r
+		self.p0 = p0
+		self.r1 = r1
+		self.r2 = r4
+		self.a = np.array(point_s[dim:])
+		self.b = np.array(point_e[dim:] - point_s[dim:]) / d
+
+
+
+
+	def traverse(self, q):
+		t_0 = q / self.r
+		xyz = self.p0 + math.cos(t_0)*self.r1 + math.sin(t_0)*self.r2
+		ab = self.a + q * self.b 
+		return np.append( xyz , ab )	
+
+
+def circle(xyz_s, xyz_m, xyz_e, j, a, v, v_0 = 0, turn = 0):
+	xyz_s = np.array(xyz_s)
+	xyz_e = np.array(xyz_e)
+
+	#path
+	path = circular(xyz_s, xyz_m, xyz_e, turn)
+
+	print("length: ", path.d)
+	# find profile for the path distance
+	result = profile.profile_1(j, a, v, path.d, v_0)
+	
+	# tick jerk
+	tick_jerk_l = profile.tick_jerk(result["tick_jerk"])
+
+	# sampling path
+	return path_sampling(tick_jerk_l, path, True)
+
+
+def line(xyz_s, xyz_e, j, a, v, v_0 = 0):
+	xyz_s = np.array(xyz_s)
+	xyz_e = np.array(xyz_e)
+
+	#path
+	path = linear(xyz_s, xyz_e)
+
+	# find profile for the path distance
+	result = profile.profile_1(j, a, v, path.d, v_0)
+	
+	# tick jerk
+	tick_jerk_l = profile.tick_jerk(result["tick_jerk"])
+
+	# sampling path
+	return path_sampling(tick_jerk_l, path, True)
+
+
+def joint(jnt_s, jnt_e, j, a, v, v_0 = 0):
+	jnt_s = np.array(jnt_s)
+	jnt_e = np.array(jnt_e)
+
+	#path
+	path = linear(jnt_s, jnt_e)
+
+	# find profile for the path distance
+	result = profile.profile_1(j, a, v, path.d, v_0)
+	
+	# tick jerk
+	tick_jerk_l = profile.tick_jerk(result["tick_jerk"])
+
+	# sampling path
+	return path_sampling(tick_jerk_l, path, False)	
+
+
+# start from line_s, go to line_e, after that go on a circle touches circle_m, and stop at circle_e
+def line_circle(line_s, line_e, circle_m, circle_e, j, a, v, v_0 = 0, turn = 0):
+	return True
+
+def point_to_motor(point, invk):
+	point = np.array(point)
+	if invk: # run inverse kinematic
+		k = kinematic.kinematic()
+		point = np.array(k.inverse(point)[0])
+	m = kinematic.motor()
+	return np.array(m.joint_to_motor(point))	
+
+
+def motor_cmd(motor_s, motor_e, t, njerk, naccel, nvel):
+	motor_path = linear(motor_s, motor_e)
+
+	return {
+			"t": t,
+			"jerk": njerk* motor_path.d  ,
+			"accel": naccel * motor_path.d,
+			"vel": nvel * motor_path.d,
+			"q": 0,  
+			"a0": motor_path.a[0],
+			"a1": motor_path.a[1],
+			"a2": motor_path.a[2],
+			"a3": motor_path.a[3],
+			"a4": motor_path.a[4],
+			"a5": 0, 
+			"a6": 0,
+			"a7": 0,   
+			"b0": motor_path.b[0],
+			"b1": motor_path.b[1],
+			"b2": motor_path.b[2],
+			"b3": motor_path.b[3],
+			"b4": motor_path.b[4],
+			"b5": 0, 
+			"b6": 0,
+			"b7": 0,
+			"m0": motor_e[0],
+			"m1": motor_e[1],
+			"m2": motor_e[2],
+			"m3": motor_e[3],
+			"m4": motor_e[4],
+			"m5": 0,
+			"m6": 0,
+			"m7": 0,
+			"njerk": njerk, 
+			"naccel": naccel,
+			"nvel": nvel,			
+			}
+
+
+def path_sampling(tick_jerk_l, path, invk, a_0 = 0, v_0 = 0, d_0 = 0, t_s = 250):
+	motor = []
+
+	# initialization
+	motor_e = point_to_motor(path.traverse(d_0), invk)
+	
+	# segments
+	for tick_jerk in tick_jerk_l:
+		t_s_total = 0
+		l = math.floor(tick_jerk["tick"]/t_s)
+		for j in range(l):				
+			cmd = {}
+			
+			# tick
+			if j < l-1:
+				t = t_s
+			else: # j == l-1
+				t = tick_jerk["tick"] - j*t_s
+			
+			# initial jerk
+			j_0 = tick_jerk["jerk"]
+
+			# final d, v, a
+			t_t_1 = t*(t-1)
+			t_t_1_t_2 = t_t_1*(t-2)
+			d = t * v_0 + t_t_1 * a_0/2 + t_t_1_t_2 * j_0/6 
+			
+			# normalized 
+			njerk = j_0 / d    
+			naccel = a_0 / d
+			nvel = v_0 / d
+
+			d_0 += d
+			v_0 += t * a_0 + t_t_1 * j_0/2 
+			a_0 += t * j_0
+
+			# motor start and end
+			motor_s = np.array(motor_e)
+			motor_e = point_to_motor(path.traverse(d_0), invk)
+		
+			# motor parameter
+			motor.append(motor_cmd(motor_s, motor_e, t, njerk, naccel, nvel))				
+
+	return motor	
+
+
 """
 prm: 
 	p_1: start
@@ -45,7 +283,7 @@ def path_tick(prm):
 		profile = profile_1(prm["j"], prm["a"], prm["v"], prm["d"], prm["v_0"] )
 	elif prm["profile"] == "profile_2":
 		profile = profile_2(prm["j"], prm["a"], prm["v"], line_prm["d"], prm["v_0"] )
-	else prm["profile"] == "profile_3":
+	elif prm["profile"] == "profile_3":
 		profile = profile_3(prm["j"], prm["a"], line_prm["d"], prm["v_0"] )
 
 
@@ -179,9 +417,7 @@ def line_circle_line_prm(p_1, p_2, p_3, r):
 	
 	return line_prm(p_1, A) +  circle_prm(C, A, - r*v_1/v_1_n, r*(np.pi - theta), 1/r) + line_prm(B, p_3)  
 
-
-if __name__ == '__main__':
-	
+def main_copy():
 	p_3 = [10,0]
 	p_2 = [5,4]
 	p_1 = [22,12]
@@ -213,3 +449,163 @@ if __name__ == '__main__':
 
 		ax.plot(x, y, "o-")
 	plt.show()	
+
+def write_to_file(cmds, path = "cmds.txt"): 
+	f = open(path, "w")
+	for cmd in cmds:
+		f.write(json.dumps(cmd) + "\n")
+	f.close()
+
+def main_line():
+
+	j = 1.0e-12
+	a = 1.0e-7
+	v = 0.001
+	v_0 = 0
+
+	jnts = [
+			[0, 0, 0, 0, 0],
+			[0, 50, 0, 0, 0],
+			[0, 0, 0, 0, 0],
+			[0, 50, 0, 0, 0],
+			[0, 0, 0, 0, 0],]
+
+	k = kinematic.kinematic()
+	result = []
+	for i in range(len(jnts) - 1):
+		result += line(k.forward(jnts[i]) , k.forward(jnts[i+1]) , j, a, v, v_0)
+
+	# write to file
+	write_to_file(result)
+
+
+def main_joint():
+
+	j = 1.0e-12
+	a = 1.0e-7
+	v = 0.001
+	v_0 = 0
+
+	jnts = [
+			[0, 0, 0, 0, 0],
+			[0, 50, 0, 0, 0],
+			]
+
+	result = []
+	for i in range(len(jnts) - 1):
+		result += joint(jnts[i],jnts[i+1] , j, a, v, v_0)
+
+	# write to file
+	write_to_file(result)	
+
+
+def main_circle():
+	j = 1.0e-11
+	a = 1.0e-6
+	v = 0.002
+	v_0 = 0
+	turn = 0
+	joint_0 = [0, 44, -111, 67, 0]
+
+	k = kinematic.kinematic()
+	xyz_s = k.forward(joint_0) 
+
+	xyz_m = np.array(xyz_s)
+	xyz_m[0] += 100
+
+	xyz_e = np.array(xyz_s)
+	xyz_e[0] += 60
+	xyz_e[1] += 60
+	xyz_e[2] += 60
+
+
+	xyz_s = [400.0, 0.0 , 180.0, 0.0, 0.0]
+	xyz_m = [300.0, 0.0 , 180.0, 0.0, 0.0]
+	xyz_e = [351.0, -50.0 , 180.0, 0.0, 0.0]
+	# list_tvaj
+	result = []
+	result += circle(xyz_s, xyz_m, xyz_e, j, a, v, v_0, turn)
+	#result += circle(xyz_e, xyz_m, xyz_s, j, a, v, v_0, turn)
+
+	write_to_file(result)
+
+	"""
+	# 3d plot
+	fig = plt.figure()
+	ax = fig.add_subplot(111, projection='3d')
+
+	# For each set of style and range settings, plot n random points in the box
+	# defined by x in [23, 32], y in [0, 100], z in [zlow, zhigh].
+	for r in result:
+		xs = r["b0"]
+		ys = r["b1"]
+		zs = r["b2"]
+		ax.scatter(xs, ys, zs, c="b", marker="o")
+	plt.show()
+	"""
+
+
+def round_line(p0, p1, p2, r):
+	return True
+
+
+def main_line_circle():
+	#give two lines, and round corner
+
+	j = 1.0e-12
+	a = 1.0e-7
+	v = 0.001
+	v_0 = 0
+	r 
+
+	jnts = [
+			[0, 0, 0, 0, 0],
+			[0, 45, -135, 90, 0],
+			[0, 90, -90, 0, 0],
+			]
+
+	k = kinematic.kinematic()
+	
+	pnts = [k.forward(jnt) for jnt in jnts]
+	#######
+	# vector
+	v_1 = pnts[0] - pnts[1]
+	v_2 = pnts[2] - pnts[1]
+
+	# norm
+	v_1_n = np.linalg.norm(v_1)
+	v_2_n = np.linalg.norm(v_2)
+
+	if v_1_n == 0 or v_2_n == 0:
+		return path_line(p_1, p_3)
+
+	# the angle forms by p_1, p_2, p_3
+	theta = np.arccos(np.inner(v_1, v_2)/(v_1_n * v_2_n))
+	
+	# check for 180 degree
+	cos_t_2 = np.cos(theta/2)
+	if cos_t_2 == 0:
+		return path_line(p_1, p_3)  
+
+	# tan theta/2
+	tan_t_2 = np.sin(theta/2) / cos_t_2
+
+	# modify r
+	r = min(r, v_1_n*tan_t_2*0.9, v_2_n*tan_t_2*0.9)
+
+	# point where v_1 touches the circle
+	A = p_2 + r/tan_t_2 * v_1/v_1_n 
+	
+	# point where v_2 touches the circle
+	B = p_2 + r/tan_t_2 * v_2/v_2_n 	
+
+	# center of the circle
+	C = p_2 + (r/np.sin(theta)) *(v_1/v_1_n + v_2/v_2_n)
+	
+	return line_prm(p_1, A) +  circle_prm(C, A, - r*v_1/v_1_n, r*(np.pi - theta), 1/r) + line_prm(B, p_3)  
+
+
+
+
+if __name__ == '__main__':
+	main_circle()

@@ -70,8 +70,8 @@ remove intervals with no ticks
 def tick_jerk(t_j):
 	data = []
 	for tj in t_j:
-		if t_j[0] > 0:
-			data.append({"t": t_j[0], "j": t_j[1]})
+		if tj[0] > 0:
+			data.append({"tick": tj[0], "jerk": tj[1]})
 	return data
 
 """
@@ -297,6 +297,119 @@ def profile_3(j, a, d, v_0):
 	return {"tick_jerk": t_j, "v_e": 0, "d": d_m}
 
 
+"""
+factor = t2 / t1
+"""
+def profile_no_jerk(a, vm, d, factor = 1):
+	# adjust d
+	d = d+ 0.01
+	# find n1 = 2*t1 + t2
+	n1 = math.floor(vm/a)
+	# adjust vm
+	if vm * n1 > d:
+		vm = d / n1
+	# find t4
+	t4 = math.floor(d/vm) - n1
+	# find t1, t2
+	# make sure t1 is not zero
+	t1 = math.floor(n1/(2+factor))+ 1
+	t2 = math.floor(factor*t1)
+	"""
+	a_m = j_m*t_1
+	v_m = a_m * (t_1 + t_2) + v_0
+	d_m = (v_m - v_0)*(2*t_1 + t_2 + t_4) + v_0 * (4*t_1 + 2*t_2 + t_4)
+
+	"""
+	
+	"""
+	vm = t1*(t1+t2)*jm
+	d = jm* t1*(t1+t2) * (t1 + t2 /2 + t4)
+	jm = d/ (t1*(t1+t2) * (t1 + t2 /2 + t4)) 	
+	"""
+	#print("###d: ", jm* t1*(t1+t2) * (t1 + t2 /2 + t4))
+	# find jerk
+	jm = d/ (t1*(t1+t2) * (2*t1 + t2 + t4))
+	# tick and jerk
+	t_j = [[t1, jm], [t2, 0], [t1, -jm], [t4, 0], [t1,-jm], [t2, 0], [t1, jm]]
+	
+	return {"tick_jerk": t_j, "d": d}
+
+
+"""
+given the number of ticks and intial values, find final a, v, q
+
+def tavq(t, j0, a0 = 0, v0 = 0, q0 = 0):
+	q0 + = t*v0 + t*(t-1)*a0/2 + t*(t-1)(t-2)*j0/6
+	v0 + = t*a0 + t*(t-1)*j0/2
+	a0 + = t*j0
+	return a0, v0, q0
+"""
+
+"""
+given initial j and a, and final a, find ticks and jerk that get you there
+"""
+def a_inv(j0, a0 , am):
+	if am == a0:
+		t = 0
+		j = j0
+	else:
+		t = 1 + math.floor((am - a0) / jm)
+		j = (am - a0) / t
+
+	return t, j
+
+
+"""
+type_4: 
+	start from a0, v0 and get to v while not exceeding a and j, and total distance d
+	it will return tick jerk and final accel, and v (ae, ve)
+"""	
+
+"""
+def profile_4(jm, am, vm, d, a0 = 0, v0 = 0):
+	# do all the initial filtering
+	if vm > v0 and am >= a0:
+		
+		t3, j3 = a_inv(jm, a0, 0)
+		a3, v3, q3 = tavq (t3, j3, a0, v0, 0)
+		
+		# decrease a to zero
+		if vm <= v3:
+			# achieve d before changing j
+			if q3 > d
+				# find t that achieve d
+				# t*v0 + t*(t-1)*a0/2 + t*(t-1)(t-2)*j3/6 == d
+				return True
+			# touch a==0 
+			return True
+
+		
+		# increasing a to am
+		t1, j1 = a_inv(jm, a0, am)
+		a1, v1, q1 = tavq (t1, j1, a0, v0, 0)
+		# decreasing a to 0
+		t3, j3 = a_inv(jm, a1, 0)
+		a3, v3, q3 = tavq (t3, j3, a1, v1, q1)
+		
+		# find t1 and t3 s.t it will achieve vm
+		if vm <= v3:
+			beta = -a0/j3
+			alpha = -j1/j3
+
+			# find t1 s.t
+			# solve(alpha+1)*j1/2 (t1**2) + (alpha+1)*a0*t1 + (v0-vm+a0/2+(beta*a0/2)) ==0
+			# equations
+			v1 = v0 + t1*a0 + (t1*(t1-1))*j1/2 
+			v3 = 
+			# asign value # solve based on achieving to zero a
+			t1 = math.floor(t1+2)
+			j1 = 2*(v1-v0 - t1*a0)/(t1*(t1-1))
+			a1 = a0 + t1*j1  
+			t3 = math.floor(2*(vm - v1 - a1/2)/a1)
+		# find t2 s.t it will achieve vm
+"""
+
+
 def plot(a, v, t, c = "r"):
 	plt.figure(1)
 	
@@ -315,38 +428,41 @@ def plot(a, v, t, c = "r"):
 	plt.show()
 
 
+def main_test_sadegh_code():
+	javn = []
+	filepath = 'test_500.txt'
+	with open(filepath) as fp:
+		for line in fp:
+			x = line.split()
+			#print(x)
+			x = [float(y) for y in x]
+			try:
+				print(x[5]/x[0], x[6]/x[1], x[7]/x[2])
+			except Exception as e:
+				pass
+			javn.append({"j": x[0], "a": x[1], "v": x[2], "n": int(x[4])})
+	
+	ticks = [x["n"] for x in javn]
+	jerk = [x["j"] for x in javn]
+	a, v, q = tick(jerk, ticks, 0)
+	#plot(a, v, q)
+
 if __name__ == '__main__':
 	
 	j = 2.0e-10
-	a = 1.0e-5
-	v = 0.45
-	d = 100000
+	a = 17.0e-6
+	v = 0.01
+	d = 10
 	v_0 =0
+	factor = 1
 
-	"""
-	j_m, a_m, v_m, t_1, t_2, t_4 = type_1(j, a, v, d, v_0)
-	jerk = [j_m,0,-j_m,0,-j_m,0,j_m]
-	tcks = [t_1, t_2, t_1,t_4,t_1,t_2 , t_1]
-	"""
-	"""
-	j_m, a_m, v_m, t_1, t_2, t_4 = type_2(j, a, v, d, v_0)
-	jerk = [j_m,0,-j_m,0]
-	tcks = [t_1, t_2, t_1,t_4]
-	"""
-	"""
-	j_m, a_m, d_m, t_1, t_2, t_4 = profile_3(j, a, v_0 , d)
-	jerk = [0, -j_m,0,j_m]
-	tcks = [t_4, t_1, t_2,t_1]
-
-	_a, _v, _t = tick(jerk, tcks, v_0)
-
-	plot(_a, _v, _t)
-	"""
-	result = profile_1(j, a, v, d, v_0)
+	result = profile_no_jerk(a, v, d, factor)
+	#result = profile_1(j, a, v, d)
 	print(result)
 	jerk = [x[1] for x in result["tick_jerk"]]
 	ticks = [x[0] for x in result["tick_jerk"]]
 	print("number of ticks: ", sum(ticks))
 	a, v, q = tick(jerk, ticks, v_0)
-
+	plot(a, v, q)
 	print(len(q))
+	
