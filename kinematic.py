@@ -67,7 +67,7 @@ class kinematic(object):
 		super(kinematic, self).__init__()
 		# l matrix
 		self.l = l
-		self.e = 0.001
+		self.e = 0.0001
 	
 
 	"""
@@ -90,6 +90,15 @@ class kinematic(object):
 
 
 	"""
+	return degree from (-180, 180]
+	"""
+	def adjust_degree(self, ang):
+		ang = ang % 360
+		if ang > 180:
+			ang = ang - 360
+		return ang
+
+	"""
 	inverse kinematics: xyz to joint
 	"""
 	def inverse(self, xyz):
@@ -101,53 +110,61 @@ class kinematic(object):
 		
 		joint = []	
 		
-		try:
-			# first we find the base rotation
-			theta_0 = math.atan2(y, x)
+		# first we find the base rotation
+		theta_0 = math.atan2(y, x)
 
+		# x
+		xy = math.sqrt(x ** 2 + y ** 2)
 
-			# next we assume base is not rotated and everything lives in x-z plane
-			x = math.sqrt(x ** 2 + y ** 2)
+		# xa and za
+		xa = self.l[0][0] + self.l[4][2] * math.cos(a)
+		za = self.l[0][2] + self.l[4][2] * math.sin(a)
 
-			# next we update x and z based on base dimensions and hand orientation
-			x -= (self.l[0][0] + self.l[4][2] * math.cos(a))
-			z -= (self.l[0][2] + self.l[4][2] * math.sin(a))
+		for i in range(2):
+			try:
+				# j0
+				j0 = theta_0 + i * math.pi
 
-			# at this point x and z are the summation of two vectors one from lower arm and one from upper arm of lengths l1 and l2
-			# let L be the length of the overall vector
-			# we can calculate the angle between l1 , l2 and L
-			L = math.sqrt(x ** 2 + z ** 2)
-			
-			if L >= self.l[1][0] + self.l[2][0]:
-				theta_l1_L = 0  # l1 angle to L
-				theta_l1_l2 = math.pi  # l1 angle to l2
+				# x, z
+				x = (-2*i + 1) * xy - xa
+				z = xyz[2] - za
+				# at this point x and z are the summation of two vectors one from lower arm and one from upper arm of lengths l1 and l2
+				# let L be the length of the overall vector
+				# we can calculate the angle between l1 , l2 and L
+				L = math.sqrt(x ** 2 + z ** 2)
+				if L >= self.l[1][0] + self.l[2][0] and L < self.l[1][0] + self.l[2][0] + self.e:
+					theta_l1_L = 0  # l1 angle to L
+					theta_l1_l2 = math.pi  # l1 angle to l2
 
-			elif L <= self.l[1][0] - self.l[2][0]:
-				theta_l1_L = 0  # l1 angle to L
-				theta_l1_l2 = 0  # l1 angle to l2
+				elif L <= self.l[1][0] - self.l[2][0] and L > self.l[1][0] - self.l[2][0] - self.e:
+					theta_l1_L = 0  # l1 angle to L
+					theta_l1_l2 = 0  # l1 angle to l2
 
-			else:
-				theta_l1_L = math.acos((self.l[1][0] ** 2 + L ** 2 - self.l[2][0] ** 2) / (2 * self.l[1][0] * L))  # l1 angle to L
-				theta_l1_l2 = math.acos((self.l[1][0] ** 2 + self.l[2][0] ** 2 - L ** 2) / (2 * self.l[1][0] * self.l[2][0]))  # l1 angle to l2
+				elif L < self.l[1][0] + self.l[2][0] and L > self.l[1][0] - self.l[2][0]:
+					theta_l1_L = math.acos((self.l[1][0] ** 2 + L ** 2 - self.l[2][0] ** 2) / (2 * self.l[1][0] * L))  # l1 angle to L
+					theta_l1_l2 = math.acos((self.l[1][0] ** 2 + self.l[2][0] ** 2 - L ** 2) / (2 * self.l[1][0] * self.l[2][0]))  # l1 angle to l2
 
-			theta_L_x = math.atan2(z, x)  # L angle to x axis
-			theta_1_0 = theta_L_x + theta_l1_L
-			theta_1_1 = theta_L_x - theta_l1_L
+				else:
+					continue 
 
-			theta_2_0 = theta_l1_l2 - math.pi
-			theta_2_1 = -(theta_l1_l2 - math.pi)
+				theta_L_x = math.atan2(z, x)  # L angle to x axis
+				
+				for j in range(2):
+					j1 = theta_L_x + (-2*j + 1) * theta_l1_L
+					j2 = (-2*j + 1)* (theta_l1_l2 - math.pi)
+					j3 = a- j1 - j2
+					joint.append([
+						self.adjust_degree(math.degrees(j0)), 
+						self.adjust_degree(math.degrees(j1)), 
+						self.adjust_degree(math.degrees(j2)), 
+						self.adjust_degree(math.degrees(j3)), 
+						b
+					])
+			except:
 
-			theta_3_0 = a - theta_1_0 - theta_2_0
-			theta_3_1 = a - theta_1_1 - theta_2_1
-
-			joint = [[theta_0, theta_1_0, theta_2_0, theta_3_0, b],[theta_0, theta_1_1, theta_2_1, theta_3_1, b]]
-			joint = [[math.degrees(j) for j in joint[0]], [math.degrees(j) for j in joint[1]]]
-
-		except:
-			pass
+				pass
 
 		return joint
-
 
 """
 given a line do the following:
@@ -959,4 +976,15 @@ def main_circle():
 
 if __name__ == '__main__':
 
-	main_circle()
+	k = kinematic()
+	joint = [0, 155, 150, 100, 0]
+
+	xyz = k.forward(joint)
+	print(xyz)
+	#print(k.inverse_backup(xyz))
+	jnts = k.inverse(xyz)
+	for j in jnts:
+		print("joint: ",j)
+		print("xyz: ",k.forward(j))
+		print("###")
+		
