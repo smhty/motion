@@ -303,11 +303,11 @@ factor = t2 / t1
 def profile_no_jerk(a, vm, d, factor = 1):
 	# find n1 = 2*t1 + t2
 	n1 = math.floor(vm/a)
-	# find t4
-	t4 = math.floor(d/vm) - n1	
-	# adjust vm
+	# adjust vm and a
 	if vm * n1 > d:
 		vm = d / n1
+	# find t4
+	t4 = math.floor(d/vm) - n1	
 	# find t1, t2
 	# make sure t1 is not zero
 	t1 = math.floor(n1/(2+factor))+ 1
