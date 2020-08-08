@@ -301,8 +301,6 @@ def profile_3(j, a, d, v_0):
 factor = t2 / t1
 """
 def profile_no_jerk(a, vm, d, factor = 1):
-	# adjust d
-	d = d+ 0.01
 	# find n1 = 2*t1 + t2
 	n1 = math.floor(vm/a)
 	# find t4
