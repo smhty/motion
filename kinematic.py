@@ -6,6 +6,143 @@ from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.pyplot as plt
 
 import json
+
+class quat(object):
+	"""docstring for quat"""
+	def __init__(self):
+		super(quat, self).__init__()
+
+	def inverse(self, q):
+		return[q[0],
+				-q[1],
+				-q[2],
+				-q[3]]
+
+	def mul(self, q, p):
+		return [q[0]*p[0]-q[1]*p[1]-q[2]*p[2]-q[3]*p[3],
+				q[0]*p[1]+q[1]*p[0]+q[2]*p[3]-q[3]*p[2],
+				q[0]*p[2]+q[2]*p[0]-q[1]*p[3]+q[3]*p[1],
+				q[0]*p[3]+q[3]*p[0]+q[1]*p[2]-q[2]*p[1]]
+
+	def sum(self, q, p):
+		return [q[0]+p[0],
+				q[1]+p[1],
+				q[2]+p[2],
+				q[3]+p[3]]
+
+	def quat_to_point(self, v):
+		return [v[1], v[2], v[3]]
+
+	def point_to_quat(self, v):
+		return[0,
+				v[0],
+				v[1],
+				v[2]]
+
+	# theta degree around axis u
+	def axis_rot_to_quat(self, u, theta):
+		cos = np.cos(theta/2)
+		sin = np.sin(theta/2)
+		L = 1/(math.sqrt(u[0]**2 + u[1]**2 + u[2]**2))
+		return [cos,
+				sin*u[0],
+				sin*u[1],
+				sin*u[2]] 
+
+	# rotation: rotate p (pure_quat) around quat q 
+	def active_rot(self, pure_quat, q):
+		inv = self.inverse(q)
+		step_1 = self.mul(q, pure_quat)
+		return self.mul(step_1, inv)
+
+	def quat_to_rot_vec(self, q):
+		return 0
+
+	def rot_vec_to_quat(self, v):
+
+
+
+class rot(object):
+	"""docstring for rotation_matrix"""
+	def __init__(self):
+		super(rot, self).__init__()
+	
+	def x(self, t):
+		return np.matrix([[1, 0 , 0], [0, np.cos(t), -np.sin(t)], [0, np.sin(t), np.cos(t)]])	
+
+	def y(self, t):
+		return np.matrix([[np.cos(t), 0 , np.sin(t)], [0, 1, 0], [-np.sin(t), 0, np.cos(t)]])	
+
+	def z(self, t):
+		return np.matrix([[np.cos(t), -np.sin(t) , 0], [np.sin(t), np.cos(t), 0], [0, 0, 1]])	
+		
+
+class dof_6(rot):
+	"""docstring for 6dof"""
+	def __init__(self):
+		super(dof_6, self).__init__()
+		
+		# O matrix	
+		self.O1 = np.array([1, 1, 1])
+		self.O2 = np.array([1, 1, 1])
+		self.O3 = np.array([1, 1, 1])
+		self.O4 = np.array([1, 1, 1])
+		self.O5 = np.array([1, 1, 1])
+		self.O6 = np.array([1, 1, 1])
+
+		# T matrix
+		self.T1 = self.x(np.deg2rad(90))
+		self.T2 = np.identity(3)
+		self.T3 = np.identity(3)
+		self.T4 = np.matmul(self.z(np.deg2rad(90)), self.x(np.deg2rad(90)))
+		self.T5 = self.x(np.deg2rad(90))
+		self.T6 = np.identity(3)
+
+	def forward(self, joint):
+		t = [np.deg2rad(j) for j in joint]
+
+		M1 = self.z(t[0])
+		M2 = np.matmul(M1, np.matmul(self.T1, self.z(t[1])))
+		M3 = np.matmul(M2, np.matmul(self.T2, self.z(t[2])))
+		M4 = np.matmul(M3, np.matmul(self.T3, self.z(t[3])))
+		M5 = np.matmul(M4, np.matmul(self.T4, self.z(t[4])))
+		M6 = np.matmul(M5, np.matmul(self.T5, self.z(t[5])))
+		M7 = np.matmul(M6, self.T6)
+
+		print(np.matmul(M6, self.O6))
+		xyz = np.matmul(M1, self.O1)+np.matmul(M2, self.O2)+np.matmul(M3, self.O3)+np.matmul(M4, self.O4)+np.matmul(M5, self.O5)+np.matmul(M6, self.O6)
+
+		return xyz
+
+	def forward_quat(self, joint):
+		t = [np.deg2rad(j) for j in joint]
+		_quat = quat()
+		M1 = _quat.axis_rot_to_quat([0, 0, 1], t[0])
+		p1 = _quat.point_to_quat(self.O1)
+
+		T1 = _quat.axis_rot_to_quat([1, 0, 0], np.deg2rad(90))
+		M2 = _quat.mul(M1, _quat.mul(T1, _quat.axis_rot_to_quat([0, 0, 1], t[1])))
+		p2 = _quat.point_to_quat(self.O2)
+
+		T2 = _quat.axis_rot_to_quat([1, 0, 0], np.deg2rad(0))
+		M3 = _quat.mul(M2, _quat.mul(T2, _quat.axis_rot_to_quat([0, 0, 1], t[2])))
+		p3 = _quat.point_to_quat(self.O3)
+
+		T3 = _quat.axis_rot_to_quat([1, 0, 0], np.deg2rad(0))
+		M4 = _quat.mul(M3, _quat.mul(T3, _quat.axis_rot_to_quat([0, 0, 1], t[3])))
+		p4 = _quat.point_to_quat(self.O4)
+
+		T4 = _quat.mul(_quat.axis_rot_to_quat([0, 0, 1], np.deg2rad(90)), _quat.axis_rot_to_quat([1, 0, 0], np.deg2rad(90)))
+		M5 = _quat.mul(M4, _quat.mul(T4, _quat.axis_rot_to_quat([0, 0, 1], t[4])))
+		p5 = _quat.point_to_quat(self.O5)
+
+		T5 = _quat.axis_rot_to_quat([1, 0, 0], np.deg2rad(90))
+		M6 = _quat.mul(M5, _quat.mul(T5, _quat.axis_rot_to_quat([0, 0, 1], t[5])))
+		p6 = _quat.point_to_quat(self.O6)
+
+		print(_quat.active_rot(p6, M6))
+		print(M6)
+
 class motor(object):
 	"""docstring for motor"""
 	def __init__(self, micro_step = 4000):
@@ -58,11 +195,11 @@ class kinematic(object):
 	"""docstring for kinematic"""
 	def __init__(self, 
 		l = [
-		[95.53023, 0, 200.09099],
+		[95.475806, 0, 206.404464],
 		[203.2, 0, 0],
 		[152.4, 0, 0],
 		[0, 0, 0],
-		[0,  0, 48.92446]]
+		[0,  0, 48.9245]]		
 	):
 		super(kinematic, self).__init__()
 		# l matrix
@@ -975,15 +1112,8 @@ def main_circle():
 	plt.show()
 
 if __name__ == '__main__':
-
-	k = kinematic()
-	joint = [0, 150, 150, 150, 0]
-	xyz = k.forward(joint)
-	print(xyz)
-	#print(k.inverse_backup(xyz))
-	jnts = k.inverse(xyz)
-	for j in jnts:
-		print("joint: ",j)
-		print("xyz: ",k.forward(j))
-		print("###")
+	joint = [10, 20, 30, 40, 50, 60]
+	k = dof_6()
+	k.forward(joint)
+	k.forward_quat(joint)
 		
