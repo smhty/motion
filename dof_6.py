@@ -18,10 +18,10 @@ i | alpha[i-1]        | a[i-1] | d[i] | theta[i]
 6 | alpha[5]= np.pi/2 | 0      | d[6] |
 
 """
-class dh(object):
+class DH(object):
 	"""docstring for dh"""
 	def __init__(self):
-		super(dh, self).__init__()
+		super(DH, self).__init__()
 
 		self.alpha = [0, np.pi/2, 0, 0, np.pi/2, np.pi/2]
 		self.a = [0, 1, 2, 1.5, 0, 0]
@@ -57,10 +57,10 @@ class dh(object):
 			[0, 0, 0, 1]	
 		])
 
-class dof_6(dh):
+class Dof_6(DH):
 	"""docstring for dof_6"""
 	def __init__(self):
-		super(dof_6, self).__init__()
+		super(Dof_6, self).__init__()
 		self.thr = 0.0000000001
 
 	"""
@@ -78,45 +78,70 @@ class dof_6(dh):
 	The robot T_f_tcp_r_base is given
 	find all the possible robot orientations 
 	"""
-	def inv(self, T_f_tcp_r_base):
+	def inv(self, T_f_tcp_r_base, theta_current, all_sol):
 		# init return
 		rtn = []
 
 		T_f6_r0 = np.matmul(T_f_tcp_r_base, self.inv_dh(self.T_f_tcp_r6))
 		T_f6_r0 = np.matmul(self.inv_dh(self.T_f0_r_base), T_f6_r0)
+		if all_sol:
+			for theta_1 in self.theta_1(T_f6_r0): # 2 x theta_1
+				for theta_5 in self.theta_5(T_f6_r0, theta_1): # 2 x theta_5
+					if theta_current:
+						theta_6 = self.theta_6(T_f6_r0, theta_1, theta_5, theta_6_init=theta_current[5]) # 1 x theta_6
+					else:
+						theta_6 = self.theta_6(T_f6_r0, theta_1, theta_5)
+					for theta_2_3_4 in self.theta_3_2_4(T_f6_r0, theta_1, theta_5, theta_6): # 1 x theta_2, # 2 x theta_3, # 1 x theta_4
+						rtn.append([theta_1]+theta_2_3_4+[theta_5, theta_6])
+		
+		elif not all_sol and theta_current:
+			for theta_1 in self.theta_1(T_f6_r0, t1=theta_current[0]): # 2 x theta_1
+				for theta_5 in self.theta_5(T_f6_r0, theta_1, t5=theta_current[4]): # 2 x theta_5
+					theta_6 = self.theta_6(T_f6_r0, theta_1, theta_5, theta_6_init=theta_current[5]) # 1 x theta_6
+					for theta_2_3_4 in self.theta_3_2_4(T_f6_r0, theta_1, theta_5, theta_6, t3=theta_current[2]): # 1 x theta_2, # 2 x theta_3, # 1 x theta_4
+						rtn.append([theta_1]+theta_2_3_4+[theta_5, theta_6])
 
-		for theta_1 in self.theta_1(T_f6_r0): # 2 x theta_1
-			for theta_5 in self.theta_5(T_f6_r0, theta_1): # 2 x theta_5
-				theta_6 = self.theta_6(T_f6_r0, theta_1, theta_5) # 1 x theta_6
-				for theta_2_3_4 in self.theta_3_2_4(T_f6_r0, theta_1, theta_5, theta_6): # 1 x theta_2, # 2 x theta_3, # 1 x theta_4
-					rtn.append([theta_1]+theta_2_3_4+[theta_5, theta_6])
 		return rtn
 
-	def theta_1(self, T_f6_r0):
+	def theta_1(self, T_f6_r0, t1=None):
 		p5_0 = np.matmul(T_f6_r0, [[0], [0], [-self.d[6]], [1]])
 		p5x_0 = p5_0[0,0]
 		p5y_0 = p5_0[1,0]
+		rtn = []
 		try:
 			alpha = math.asin(-self.d[4]/math.sqrt(p5x_0**2 + p5y_0**2))
-			phi_2 = [alpha, math.pi-alpha]
-
 			phi_1 = math.atan2(p5y_0, p5x_0)
 
-			return [phi_1-alpha, phi_1+alpha-math.pi]
+			rtn = [phi_1-alpha, phi_1+alpha-math.pi]
+			if t1 != None:
+				if min(abs(t1-rtn[0]%(2*math.pi)), abs(t1-rtn[0]%(-2*math.pi))) > min(abs(t1-rtn[1]%(2*math.pi)), abs(t1-rtn[1]%(-2*math.pi))):
+					rtn.pop(0)
+				else:
+					rtn.pop(1)
+			return rtn
 		except Exception as ex:
-			return []
+			return rtn
 
-	def theta_5(self, T_f6_r0, theta_1):
+	def theta_5(self, T_f6_r0, theta_1, t5=None):
 		nom = T_f6_r0[1,3]*np.cos(theta_1)-T_f6_r0[0,3]*np.sin(theta_1)+self.d[4]
+		rtn = []
 		try:
 			phi = math.acos(nom/self.d[6])
-			return [phi, -phi]
+			rtn = [phi, -phi]
+			
+			if t5 !=None:
+				if t5*rtn[0] >= 0:
+					rtn.pop(1)
+				else:
+					rtn.pop(0)
+
+			return rtn
 		except Exception as ex:
 			return []
 
 	def theta_6(self, T_f6_r0, theta_1, theta_5, theta_6_init=0):
 		sgn = 1
-		if math.sin(theta_5) == 0:
+		if abs(math.sin(theta_5)) < self.thr:
 			return theta_6_init
 		elif math.sin(theta_5) < 0:
 			sgn = -1
@@ -124,7 +149,7 @@ class dof_6(dh):
 		sin = (-T_f6_r0[0,1]*math.sin(theta_1) + T_f6_r0[1,1]*math.cos(theta_1))/(-sgn)
 		return -math.atan2(sin, cos)
 
-	def theta_3_2_4(self, T_f6_r0, theta_1, theta_5, theta_6):
+	def theta_3_2_4(self, T_f6_r0, theta_1, theta_5, theta_6, t3=None):
 		rtn = []
 		T_f1_r0 = self.T(1, theta_1)
 		T_f5_r4 = self.T(5, theta_5)
@@ -145,10 +170,19 @@ class dof_6(dh):
 				t_3 = math.pi
 			elif abs(p4xz_norm - abs(self.a[2]+self.a[3])) < self.thr:
 				t_3 = 0
-			else:
+			elif p4xz_norm > min(abs(self.a[2]+self.a[3]), abs(self.a[2]-self.a[3])) and p4xz_norm < max(abs(self.a[2]+self.a[3]), abs(self.a[2]-self.a[3])):
 				t_3 = math.acos((p4xz_norm**2 - self.a[2]**2 - self.a[3]**2)/(2*self.a[2]*self.a[3]))
+			else:
+				return rtn
+
+			t_3_list = [t_3, -t_3]
 			
-			for theta_3 in [t_3, -t_3]:
+			if t3 !=None:
+				if t3*t_3_list[0] >= 0:
+					t_3_list.pop(1)
+				else:
+					t_3_list.pop(0)
+			for theta_3 in t_3_list:
 				try:
 					# theta 2
 					phi_3 = math.pi - theta_3
@@ -177,10 +211,122 @@ class dof_6(dh):
 		r = r%(2*math.pi)
 		return r - (2*math.pi)*(r>math.pi)
 
+
+"""
+Euler ZYX mobile
+alpha: around z
+beta: around mobile y
+gamma: around mobile x
+"""
+class Euler(object):
+	"""docstring for Euler"""
+	def __init__(self):
+		super(Euler, self).__init__()
+		
+
+	def rot_to_eul(self, rot):
+		# B = math.pi/2
+		if max(abs(rot[0, 0]), abs(rot[1, 0])) < 0.000001:
+			B = math.pi/2
+			A = 0
+			G = math.atan2(rot[0, 1], rot[1, 1])
+		
+		else:
+			B = math.atan2(-rot[2, 0], math.sqrt(rot[0, 0]**2 + rot[1, 0]**2))
+			A = math.atan2(rot[1, 0], rot[0, 0])
+			G = math.atan2(rot[2, 1], rot[2, 2])
+
+		return [A, B, G]
+
+
+	def eul_to_rot(self, ABG):
+		ca = math.cos(ABG[0])
+		sa = math.sin(ABG[0])
+
+		cb = math.cos(ABG[1])
+		sb = math.sin(ABG[1])
+
+		cg = math.cos(ABG[2])
+		sg = math.sin(ABG[2])
+
+		return np.matrix([
+			[ca*cb, ca*sb*sg-sa*cg, ca*sb*cg+sa*sg],
+			[sa*cb, sa*sb*sg+ca*cg, sa*sb*cg-ca*sg],
+			[-sb, cb*sg, cb*cg]])
+
+
+class C_kntmc(object):
+	"""docstring for dorna_c"""
+	def __init__(self):
+		super(C_kntmc, self).__init__()
+		
+		# create the 6 degree of freedom robot
+		self.dof_6 = Dof_6()
+
+		# create Euler
+		self.euler = Euler()
+
+	def joint_to_theta(self, joint):
+		theta = list(joint)
+		theta[3] +=90 
+		return [math.radians(j) for j in theta]
+
+
+	def theta_to_joint(self, theta):
+		joint = [math.degrees(t) for t in theta]
+		joint[3] -=90
+		return [self.dof_6.adjust_degree(j) for j in joint]
+
+	def fw(self, joint):
+		# adjust theta to dof_6
+		_theta = self.joint_to_theta(joint)
+		
+		# fw result
+		fw = self.dof_6.fw(_theta)
+
+		# abg
+		abg = self.euler.rot_to_eul(fw[0:3, 0:3])
+		abg = [math.degrees(r) for r in abg]
+
+		return [fw[0,3], fw[1,3], fw[2,3]] + abg
+
+
+	def inv(self, xyzabg, joint_current=[], all_sol=True):
+		ABG = [math.radians(t) for t in xyzabg[3:]]
+		rot = self.euler.eul_to_rot(ABG)
+
+		T_f_tcp_r_base = np.matrix([
+			[rot[0,0], rot[0,1], rot[0,2], xyzabg[0]],
+			[rot[1,0], rot[1,1], rot[1,2], xyzabg[1]],
+			[rot[2,0], rot[2,1], rot[2,2], xyzabg[2]],
+			[0, 0, 0, 1]
+		])
+
+		# init condition
+		theta_current = list(joint_current)
+		if theta_current:
+			theta_current = self.joint_to_theta(theta_current)
+		
+		theta_all = self.dof_6.inv(T_f_tcp_r_base, theta_current=theta_current, all_sol=all_sol)
+		
+		# all the solution
+		joint_all = [self.theta_to_joint(theta) for theta in theta_all ]
+
+		# adjust j[5] for infinite rotation
+		if joint_current:
+			rnd = math.floor(joint_current[5]/360)
+			if abs(joint_current[5] - (rnd+1) *360) < abs(joint_current[5] - rnd *360):
+				rnd += 1 
+
+			for j in joint_all:
+				j[5] += rnd*360
+		
+		return joint_all
+
 def main_random():
 	thr = 0.001
-	knmtc = dof_6()
-	for i in range(100000):
+	knmtc = Dof_6()
+	for i in range(1):
 		flag = True
 		theta = [360*random.random()-180, 360*random.random()-180, 0, 0, 360*random.random()-180, 360*random.random()-180]
 		_theta = [math.radians(t) for t in theta]
@@ -199,12 +345,14 @@ def main_random():
 			print("theta ", i, theta)
 			print("all ", i, [[math.degrees(t) for t in x] for x in theta_all])
 			print("dist_list", dist, dist_list)
+
+
 def main_diagnose():
 	theta =  [-46.18777184724834, -124.78004640958426, 0, -140.31962984844893, -0.2814578757161428, 29.903238216683548]
 	print(theta)
 	_theta = [math.radians(t) for t in theta]
 	
-	knmtc = dof_6()
+	knmtc = Dof_6()
 	T_f_tcp_r_base = knmtc.fw(_theta)
 	T_f6_r0 = np.matmul(T_f_tcp_r_base, knmtc.inv_dh(knmtc.T_f_tcp_r6))
 	T_f6_r0 = np.matmul(knmtc.inv_dh(knmtc.T_f0_r_base), T_f6_r0)
@@ -221,6 +369,27 @@ def main_diagnose():
 	theta_3_2_4 = knmtc.theta_3_2_4(T_f6_r0, theta_1[0], theta_5[1], theta_6)
 	print([[math.degrees(t) for t in x] for x in theta_3_2_4])
 
+
+def main_dorna_c():
+	thr = 0.001
+	knmtc = C_kntmc()
+	for i in range(100000):
+		flag = True
+		joint = [360*random.random()-180, 360*random.random()-180, 360*random.random()-180, 360*random.random()-180, 360*random.random()-180, -720*random.random()-360]
+		#joint = [110.61048010731821, -170.60639070054873, 0, 0, -56.78812718139007, -125.48839700234943]
+		dist_list = []
+		xyzabg = knmtc.fw(joint)
+		joint_all = knmtc.inv(xyzabg, joint_current=joint, all_sol=False)
+		dist = np.linalg.norm(np.array(joint) - np.array(joint_all[0]))
+		if dist > 0.001:
+			print(i, joint)
+			print(joint_all)
+			print("######")			
+			pass
+		#print(i, joint)
+		#print(joint_all)
+		#print("######")
 if __name__ == '__main__':
-	main_random()
+	#main_random()
 	#main_diagnose()
+	main_dorna_c()
