@@ -172,6 +172,44 @@ class type_1(object):
 		t_j = [[t_1, j_m], [t_2, 0], [t_1, -j_m], [t_4, 0], [t_1,-j_m], [t_2, 0], [t_1, j_m]]
 		return {"tick_jerk": t_j, "v_e": v_0, "d": d_m}
 
+	"""
+	v: a number between 0-1
+	a: a number between 0-1
+	t: total number of ticks
+	d: total distance
+
+	v=0 min v_m
+	v=1 max v_m
+	
+	a = 0 min a_m
+	a = 1 max a_m
+
+	t_4 = math.floor(t*(-1 + 2/(1+v)))
+	# v_m = 2 * (d - t*v_0) / (t + t_4)
+
+	t_1 = math.floor((t-t_4)/2 * (1-1/(1+a)))
+	t_2 = math.floor((t - t_4 - 4*t_1)/2)
+	t_4 = math.floor(t - 4*t_1 - 2*t_2) # update t_4
+
+	j = d /  (t_1 * (t_1 + t_2) * (2*t_1 + t_2 + t_4))
+	a_m = j * t_1
+	v_m = a_m *(t_1 + t_2)
+	"""
+	def prm_t_v_a(self, d, t, v, a):
+		t_4 = math.floor(t*(-1 + 2/(1+v)))
+		# v_m = 2 * (d - t*v_0) / (t + t_4)
+
+		t_1 = math.floor((t-t_4)/2 * (1-1/(1+a)))
+		t_2 = math.floor((t - t_4 - 4*t_1)/2)
+		t_4 = math.floor(t - 4*t_1 - 2*t_2) # update t_4
+
+		j_m = d /  (t_1 * (t_1 + t_2) * (2*t_1 + t_2 + t_4))
+		a_m = j_m * t_1
+		v_m = a_m *(t_1 + t_2)
+		d_m = v_m *(2*t_1 + t_2 + t_4)
+
+		t_j = [[t_1, j_m], [t_2, 0], [t_1, -j_m], [t_4, 0], [t_1,-j_m], [t_2, 0], [t_1, j_m]]
+		return {"tick_jerk": t_j, "v_e": 0, "d": d_m}
 
 	"""
 	j: jerk
@@ -217,6 +255,8 @@ class type_1(object):
 		t_j = [[t_1, j_m], [t_2, 0], [t_1, -j_m], [t_4, 0], [t_1,-j_m], [t_2, 0], [t_1, j_m]]
 		return {"tick_jerk": t_j, "v_e": v_0, "d": d}
 
+
+
 """
 type_2: s-curve with no ending tail
 	t_1, t_2, t_3, t_4
@@ -230,6 +270,58 @@ class type_2(object):
 	"""docstring for type_2"""
 	def __init__(self):
 		super(type_2, self).__init__()
+
+	"""
+	v: a number between 0-1
+	a: a number between 0-1
+	t: total number of ticks
+	d: total distance
+
+	v=0 min v_m
+	v=1 max v_m
+	
+	a = 0 min a_m
+	a = 1 max a_m
+
+	
+	if d-v_0*t >=0:
+		alpha = (t-1)*(t-2) / (t*(1+v)-2)
+		t_4 = math.floor(2*alpha -t + 1)
+
+	if d-v_0*t < 0:
+		denom = 1/2 - v_0 * (t-1) / (v*(d-v_0))
+		nom = ((d*(t-1) -v_0*(t-1)*(t/2 + 1)) / (v*(d-v_0))) -t/2 + 1
+		t_4 = math.floor(nom/denom)
+
+	t_1 = math.floor((t-t_4)*(1-1/(1+a)))
+	t_2 = math.floor((t - t_4 - 2*t_1))
+	t_4 = math.floor(t - 2*t_1 - t_2) # update t_4 
+
+	"""
+	def prm_t_v_a(self, d, t, v, a, v_0=0):
+		if d-v_0*t >=0:
+			alpha = (t-1)*(t-2) / (t*(1+v)-2)
+			t_4 = math.floor(2*alpha -t + 1)
+
+		if d-v_0*t < 0:
+			v_min = max(0, d-v_0*(1+t/2))
+			print("v_min: ", v_min)
+			v_max = (d-v_0) / (t-1)
+			t_4 = 2*(d-v_0*t) / (v_min + v*(v_max-v_min) -v_0) -t+2 
+			t_4 = math.floor(t_4)
+
+		t_1 = math.floor((t-t_4)*(1-1/(1+a)))
+		t_2 = math.floor((t - t_4 - 2*t_1))
+		t_4 = math.floor(t - 2*t_1 - t_2) # update t_4 
+
+		j_m = (d - v_0 * (2*t_1 + t_2 + t_4)) / (t_1 * (t_1 + t_2) * (t_1 + t_2/2 + t_4 - 1))
+		a_m = j_m * t_1
+		v_m = a_m * (t_1 + t_2) + v_0 
+
+		t_j = [[t_1, j_m], [t_2, 0], [t_1, -j_m], [t_4, 0]]
+		return {"tick_jerk": t_j, "v_e": v_m, "d": d}
+
+
 	"""
 	j: jerk
 	d: travel distance
@@ -367,6 +459,43 @@ class type_3(object):
 	"""docstring for type_3"""
 	def __init__(self):
 		super(type_3, self).__init__()
+
+	"""
+	v: a number between 0-1
+	a: a number between 0-1
+	t: total number of ticks
+	d: total distance
+
+	v=0 min v_m
+	v=1 max v_m
+	
+	a = 0 min a_m
+	a = 1 max a_m
+
+	"""
+	def prm_t_v_a(self, d, t, v, a, v_0=0):
+		if d-v_0*t >=0:
+			alpha = (t-1)*(t-2) / (t*(1+v)-2)
+			t_4 = math.floor(2*alpha -t + 1)
+
+		if d-v_0*t < 0:
+			v_min = max(0, d-v_0*(1+t/2))
+			print("v_min: ", v_min)
+			v_max = (d-v_0) / (t-1)
+			t_4 = 2*(d-v_0*t) / (v_min + v*(v_max-v_min) -v_0) -t+2 
+			t_4 = math.floor(t_4)
+
+		t_1 = math.floor((t-t_4)*(1-1/(1+a)))
+		t_2 = math.floor((t - t_4 - 2*t_1))
+		t_4 = math.floor(t - 2*t_1 - t_2) # update t_4 
+
+		j_m = (d - v_0 * (2*t_1 + t_2 + t_4)) / (t_1 * (t_1 + t_2) * (t_1 + t_2/2 + t_4 - 1))
+		a_m = j_m * t_1
+		v_m = a_m * (t_1 + t_2) + v_0 
+
+		t_j = [[t_1, j_m], [t_2, 0], [t_1, -j_m], [t_4, 0]]
+		return {"tick_jerk": t_j, "v_e": v_m, "d": d}
+
 		
 	def prm_j_a_v(self, j, a, d, v_0):
 		t_1_a = math.floor(a / j)
@@ -412,25 +541,30 @@ class type_3(object):
 	td: total number of ticks
 	v_0: initial velocity 
 
-	a_m = j * t_1 < a
-	v_0 = a_m (t_1 + t_2)
-	d_m = j * t_1 * (t_1 + t_2)* (t_1 + t_2 /2 + t_4 + 1) = d
-	v_0*(t_1 + t_2 /2 + t_4 + 1) = d
+	
+	We use two parts, t1 and t2, with -j1 and j2 jerk respectively
+	starting from vo, at the end of t1 we have
+	q[t_1 - 1] = t_1*v_0 - t_1*(t_1-1)(t_1-2)*j_1/6
+	v[t_1 - 1] = v_0 - t_1*(t_1-1)*j_1/2
+	a[t_1 - 1] = -t_1*j_1
 
-	some additional constraints
-	reduce j and a_m as much as possible
+	if t_d * v_0 <= d:
 
-	t_4 = 0
-	t_d = 2*t_1 + t_2
-
-	let: m = t_1 + t_2/2
-	2*m + t_4 = t_d
-	m + t_4 + 1 = d/v_0
-
-	m = t_d - d/v_0 +1
-	t_4 = t_d - 2*m  
 	"""
 	def prm_time(self, j, d, t_d, p_a=0.5, v_0 = 0):
+		if t_d * v_0 <= d:
+			t_1 = math.floor(t_d/4)
+	
+			v_m = 2*(d - (v_0* t_d/4))/t_d
+			j_1 = (v_m - v_0) / (t_1**2)
+			j_2 = v_m / (t_1**2)
+
+		else:
+			v_m = v_0 / 2
+			t_1 = 123		  
+
+			# can not make the time
+			return {"tick_jerk": [], "error": 1}
 		m = t_d - d/v_0 +1
 		t_4 = math.floor(t_d - 2*m)
 		print(t_4)
@@ -451,6 +585,8 @@ class type_3(object):
 
 """
 given the number of ticks and initial values, find final a, v, q
+a[t-1] = a_0 + t*j0
+
 """
 def tavq(t, j0, a0 = 0, v0 = 0, q0 = 0):
 	q0 += t*v0 + t*(t-1)*a0/2 + t*(t-1)(t-2)*j0/6
@@ -477,7 +613,7 @@ def plot(a, v, t, c = "r"):
 	plt.figure(1)
 	
 	plt.subplot(311)
-	plt.plot(a, c+'o')
+	plt.plot(a, c+'-')
 	plt.title("a_end "+ str(a[-1]) )
 	"""
 	#plt.title("Accelaration" )
@@ -486,7 +622,7 @@ def plot(a, v, t, c = "r"):
 	"""
 
 	plt.subplot(312)
-	plt.plot(v, c+'o')
+	plt.plot(v, c+'-')
 	plt.title("v_end " + str(v[-1]))
 	"""
 	plt.title("Velocity" )
@@ -496,7 +632,7 @@ def plot(a, v, t, c = "r"):
 
 
 	plt.subplot(313)
-	plt.plot(t, c+'o')
+	plt.plot(t, c+'-')
 	plt.title("t_end "+ str(t[-1]))
 	"""
 	plt.title("Distance" )
@@ -560,13 +696,22 @@ def main_1():
 	factor = 1
 
 	#result = profile_no_jerk(a, v, d, factor)
-	result = type_3().prm_time(j, d, t_d, p_a, v_0)
+	#result = type_3().prm_time(j, d, t_d, p_a, v_0)
 	#result = type_2().prm_j_a_v(j, a, v, d, v_0)
-	print(result)
+	result = type_2().prm_t_v_a(d, t_d, 0.8, 0.5, v_0)
+	print(result["tick_jerk"][0][1])
 	jerk = [x[1] for x in result["tick_jerk"]]
 	ticks = [x[0] for x in result["tick_jerk"]]
 	a, v, q = tick(jerk, ticks, v_0=v_0)
 	plot(a, v, q)
+
+	result = type_2().prm_t_v_a(d, t_d, 0.8, 0.1, v_0)
+	print(result["tick_jerk"][0][1])
+	jerk = [x[1] for x in result["tick_jerk"]]
+	ticks = [x[0] for x in result["tick_jerk"]]
+	a, v, q = tick(jerk, ticks, v_0=v_0)
+	plot(a, v, q)
+
 
 def main_cont():
 	a0 = 0
