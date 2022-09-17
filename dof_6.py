@@ -255,13 +255,15 @@ class Euler(object):
 			[-sb, cb*sg, cb*cg]])
 
 
-class C_kntmc(object):
-	"""docstring for dorna_c"""
+class Dorna_c_knmtc(object):
+	"""docstring for Dorna_c_knmtc"""
 	def __init__(self):
-		super(C_kntmc, self).__init__()
+		super(Dorna_c_knmtc, self).__init__()
 		
 		# create the 6 degree of freedom robot
 		self.dof_6 = Dof_6()
+		#self.dof_6.a = []
+		#self.dof_6.d = []
 
 		# create Euler
 		self.euler = Euler()
@@ -372,7 +374,7 @@ def main_diagnose():
 
 def main_dorna_c():
 	thr = 0.001
-	knmtc = C_kntmc()
+	knmtc = Dorna_c_knmtc() 
 	for i in range(100000):
 		flag = True
 		joint = [360*random.random()-180, 360*random.random()-180, 360*random.random()-180, 360*random.random()-180, 360*random.random()-180, -720*random.random()-360]
@@ -380,6 +382,8 @@ def main_dorna_c():
 		dist_list = []
 		xyzabg = knmtc.fw(joint)
 		joint_all = knmtc.inv(xyzabg, joint_current=joint, all_sol=False)
+		#joint_all = [[j_0,...,j[5]]], all_sol == True, [[j_0,...,j[5]], ... , [j_0,...,j[5]]]
+		
 		dist = np.linalg.norm(np.array(joint) - np.array(joint_all[0]))
 		if dist > 0.001:
 			print(i, joint)
