@@ -1,4 +1,5 @@
 import numpy as np
+import math
 
 """
 traverse from point S to E in a linear manner
@@ -81,3 +82,102 @@ class circular(object):
 		xyz = self.p0 + math.cos(t_0)*self.r1 + math.sin(t_0)*self.r2
 		ab = self.a + q * self.b 
 		return np.append( xyz , ab )	
+
+
+"""
+curve
+"""
+class curve(object):
+	"""docstring for curve"""
+	def __init__(self, point_s, point_m, point_e, corner, hlf=0):
+		super(curve, self).__init__()
+		BA = point_s - point_m
+		BC = point_e - point_m
+
+		LBA = np.linalg.norm(BA)
+		LBC = np.linalg.norm(BC)
+
+		BA = BA/LBA
+		BC = BC/LBC
+
+		theta = 0.5*(math.pi - math.acos(np.inner(BA, BC)))
+		alpha = math.tan(theta)
+
+		y = BA + BC
+		y = y/np.linalg.norm(y)
+
+		x = BA - np.inner(BA, y)* y
+		x = x/np.linalg.norm(x)
+
+		L = min(corner, 0.5*min(LBA, LBC))
+
+		self.base = point_m # edge position
+		self.x = x # curve plane x coordinate
+		self.y = y # curve plane y coordinate
+		self.l = L # Length we chop from line
+		self.alpha = alpha # Tangent value of edge angel min 0 max PI/2
+		self.theta = theta # the angle between final line and initial line divided by two
+		self.d = 2*L # Integrated length of curve
+
+		# helper variables
+		self._L3 = L**3
+		self._L4 = L**4
+		self._alpha = 1/math.sqrt(1.0 + self.alpha**2)
+		self.__alpha = self.alpha / (8.0*math.sqrt(1.0 + self.alpha**2)*self._L3)
+
+		self.hlf = hlf
+
+		self.start = self.traverse(0)
+		self.middle = self.traverse(L)
+		self.end = self.traverse(2*L)
+
+	def section(self, hlf):
+		self.hlf = hlf
+		if hlf != 0:
+			self.d = self.l
+
+	def traverse(self, q):
+		if self.hlf == 2: # traverse second half
+			q = self.d+q
+
+		x = (self.l - q) * self._alpha;
+		y = self.__alpha * (8.0 *self._L4 - 8.0*self._L3*q + 4.0*self.l*(q**3) - (q**4));
+
+		return self.base + x*self.x + y*self.y
+
+
+def main():
+	import matplotlib.pyplot as plt
+	point_s = np.array([0, 0])
+	point_m = np.array([0, 3])
+	point_e = np.array([0, 6])
+	corner = 3.5
+	counter = 100
+
+	crv = curve(point_s, point_m, point_e, corner)
+
+	x = []
+	y = []
+	x.append(point_s[0])
+	y.append(point_s[1])
+
+	for i in range(counter):
+		point = crv.traverse(crv.d*(i/counter))
+		x.append(point[0])
+		y.append(point[1])
+
+	x.append(point_e[0])
+	y.append(point_e[1])
+
+	x.append(point_m[0])
+	y.append(point_m[1])
+
+	x.append(point_s[0])
+	y.append(point_s[1])
+
+	plt.figure(1)
+	plt.plot(x, y,'r-')
+	plt.show()
+
+if __name__ == '__main__':
+	main()
