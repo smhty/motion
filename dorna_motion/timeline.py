@@ -9,8 +9,8 @@ commands are in abs
 input
 	point_data: {
 		"cmd": "jmove" or "lmove"
-		"joint":
-		"xyz":
+		"joint": []
+		"xyz": []
 		"t":
 		"a":
 		"cont":
