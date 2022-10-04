@@ -145,7 +145,7 @@ class curve(object):
 
 		return self.base + x*self.x + y*self.y
 
-
+"""
 def main():
 	import matplotlib.pyplot as plt
 	point_s = np.array([0, 0])
@@ -181,3 +181,4 @@ def main():
 
 if __name__ == '__main__':
 	main()
+"""

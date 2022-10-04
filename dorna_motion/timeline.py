@@ -1,5 +1,5 @@
-import profile
-import traverse
+import dorna_motion.profile as profile
+import dorna_motion.traverse as traverse
 import numpy as np
 import math
 
@@ -232,7 +232,7 @@ def profile_to_plot(trv_list, t, a_avg, v_0, v_e, j, time_start=0, ticks_per_sec
 
 	return prf, data
 
-
+"""
 def main():
 	import matplotlib.pyplot as plt
 	from mpl_toolkits import mplot3d
@@ -258,3 +258,4 @@ def main():
 
 if __name__ == '__main__':
 	main()
+"""
