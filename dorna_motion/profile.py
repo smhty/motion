@@ -702,3 +702,46 @@ def a_inv(j0, a0 , am):
 		j = (am - a0) / t
 
 	return t, j
+
+"""
+def plot(a, v, t, c = "r"):
+	plt.figure(1)
+	
+	plt.subplot(311)
+	plt.plot(a, c+'-')
+	plt.title("a_end "+ str(a[-1]) )
+
+	plt.subplot(312)
+	plt.plot(v, c+'-')
+	plt.title("v_end " + str(v[-1]))
+
+
+	plt.subplot(313)
+	plt.plot(t, c+'-')
+	plt.title("t_end "+ str(t[-1]))
+	plt.show()
+
+
+def main_1():
+	d_list = [[0, 1500, 0], [0, 1500, 0], [0, 1500, 0]]
+	t = 1e5
+	a_avg = 1e-7
+	v_0 = [0, 2e-3, 3e-3]
+	v_e = [2e-3, 3e-3, 0]
+	j = 0
+	print("prm: ", "d_list: ", d_list, " t: ",t, " a_avg: ", a_avg, " v_0: ", v_0, " v_e: ", v_e, " j: ", j)
+
+	tick_jerk = []
+	for i in range(len(d_list)): 
+		result = profile(d_list[i], t, a_avg, v_0[i], v_e[i], j) #profile(d_list, t, a_avg, v_0, v_e, a)
+		tick_jerk += result["tick_jerk"]
+
+	jerk = [x[1] for x in tick_jerk]
+	ticks = [x[0] for x in tick_jerk]
+	a, v, q = tick(jerk, ticks, v_0=v_0[0])
+	plot(a, v, q)
+
+if __name__ == '__main__':
+	import matplotlib.pyplot as plt
+	main_1()
+"""
