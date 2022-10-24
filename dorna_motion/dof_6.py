@@ -24,8 +24,9 @@ class DH(object):
 		super(DH, self).__init__()
 
 		self.alpha = [0, np.pi/2, 0, 0, np.pi/2, np.pi/2]
-		self.a = [0, 1, 2, 1.5, 0, 0]
-		self.d = [0, 1, 0, 0, -1, 1, 1]
+		self.a = [0, 0.100039, 0.299983, 0.2085, 0, 0]
+		self.d = [0, 0.309664, 0, 0, -0.1331, 0.091502, 0]
+		
 		self.T_f0_r_base = np.identity(4) # word
 		self.T_f_tcp_r6 = np.identity(4) # TCP
 
@@ -305,12 +306,12 @@ class Dorna_c_knmtc(object):
 		])
 
 		# init condition
-		theta_current = list(joint_current)
-		if theta_current:
-			theta_current = self.joint_to_theta(theta_current)
-		
+		theta_current = None
+		if joint_current:
+			theta_current = list(joint_current)
+			if theta_current:
+				theta_current = self.joint_to_theta(theta_current)
 		theta_all = self.dof_6.inv(T_f_tcp_r_base, theta_current=theta_current, all_sol=all_sol)
-		
 		# all the solution
 		joint_all = [self.theta_to_joint(theta) for theta in theta_all ]
 
@@ -383,7 +384,7 @@ def main_dorna_c():
 		xyzabg = knmtc.fw(joint)
 		joint_all = knmtc.inv(xyzabg, joint_current=joint, all_sol=False)
 		#joint_all = [[j_0,...,j[5]]], all_sol == True, [[j_0,...,j[5]], ... , [j_0,...,j[5]]]
-		
+		print(joint_all)
 		dist = np.linalg.norm(np.array(joint) - np.array(joint_all[0]))
 		if dist > 0.001:
 			print(i, joint)
