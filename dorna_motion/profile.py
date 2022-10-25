@@ -263,18 +263,14 @@ def profile(d_list, t, a_avg, v_0, v_e, j):
 		t_2 = max(0, math.floor(2*T_1 - 2*t_1))
 
 	# t_5 and t_6
-	"""
-	if v_e == v_m:
-		print("yes") 
+	if v_e == v_m and t_1 != 0 and t_2 != 0:
 		t_5 = math.floor(0)
 		t_6 = math.floor(0)
 	else:
-		pass
-	"""
-	T_3 = abs(v_m-v_e)/(2*_a_avg) # t_5+t_6/2
-	#t_5 = max(1, math.floor(2*T_3*(1-1/(1+a))))
-	t_5 = max(1, math.floor(T_3 + j*(1-T_3)))
-	t_6 = max(0, math.floor(2*T_3 - 2*t_5))
+		T_3 = abs(v_m-v_e)/(2*_a_avg) # t_5+t_6/2
+		#t_5 = max(1, math.floor(2*T_3*(1-1/(1+a))))
+		t_5 = max(1, math.floor(T_3 + j*(1-T_3)))
+		t_6 = max(0, math.floor(2*T_3 - 2*t_5))
 
 	# t_4
 	t_4 = t_tmp - 2*t_1 - t_2 - 2*t_5 - t_6
@@ -702,8 +698,8 @@ def a_inv(j0, a0 , am):
 		j = (am - a0) / t
 
 	return t, j
-
 """
+
 def plot(a, v, t, c = "r"):
 	plt.figure(1)
 	
@@ -723,11 +719,11 @@ def plot(a, v, t, c = "r"):
 
 
 def main_1():
-	d_list = [[0, 1500, 0], [0, 1500, 0], [0, 1500, 0]]
+	d_list = [[0, 1e5, 0]]
 	t = 1e5
-	a_avg = 1e-7
-	v_0 = [0, 2e-3, 3e-3]
-	v_e = [2e-3, 3e-3, 0]
+	a_avg = 0
+	v_0 = [1]
+	v_e = [1]
 	j = 0
 	print("prm: ", "d_list: ", d_list, " t: ",t, " a_avg: ", a_avg, " v_0: ", v_0, " v_e: ", v_e, " j: ", j)
 

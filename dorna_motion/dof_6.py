@@ -24,8 +24,11 @@ class DH(object):
 		super(DH, self).__init__()
 
 		self.alpha = [0, np.pi/2, 0, 0, np.pi/2, np.pi/2]
-		self.a = [0, 1, 2, 1.5, 0, 0]
-		self.d = [0, 1, 0, 0, -1, 1, 1]
+		#self.a = [0, 1, 2, 1.5, 0, 0]
+		#self.d = [0, 1, 0, 0, -1, 1, 1]
+		self.a = [0, 100.0, 300.0, 208.5, 0, 0]
+		self.d = [0, 309,7036, 0, 0, -133.1, 90.5, 9.707]
+
 		self.T_f0_r_base = np.identity(4) # word
 		self.T_f_tcp_r6 = np.identity(4) # TCP
 
@@ -262,8 +265,8 @@ class Dorna_c_knmtc(object):
 		
 		# create the 6 degree of freedom robot
 		self.dof_6 = Dof_6()
-		#self.dof_6.a = []
-		#self.dof_6.d = []
+		self.dof_6.a = [0, 100.0, 300.0, 208.5, 0, 0]
+		self.dof_6.d = [0, 309,7036, 0, 0, -133.1, 90.5, 9.707]
 
 		# create Euler
 		self.euler = Euler()
@@ -350,7 +353,7 @@ def main_random():
 
 
 def main_diagnose():
-	theta =  [-46.18777184724834, -124.78004640958426, 0, -140.31962984844893, -0.2814578757161428, 29.903238216683548]
+	theta =  [0, 0, 90, 0, 0, 0]
 	print(theta)
 	_theta = [math.radians(t) for t in theta]
 	
@@ -375,15 +378,18 @@ def main_diagnose():
 def main_dorna_c():
 	thr = 0.001
 	knmtc = Dorna_c_knmtc() 
-	for i in range(100000):
+	for i in range(1):
 		flag = True
-		joint = [360*random.random()-180, 360*random.random()-180, 360*random.random()-180, 360*random.random()-180, 360*random.random()-180, -720*random.random()-360]
-		#joint = [110.61048010731821, -170.60639070054873, 0, 0, -56.78812718139007, -125.48839700234943]
+		#joint = [360*random.random()-180, 360*random.random()-180, 360*random.random()-180, 360*random.random()-180, 360*random.random()-180, -720*random.random()-360]
+		joint = [0, 0, 0, 0, 0, 0]
 		dist_list = []
 		xyzabg = knmtc.fw(joint)
 		joint_all = knmtc.inv(xyzabg, joint_current=joint, all_sol=False)
 		#joint_all = [[j_0,...,j[5]]], all_sol == True, [[j_0,...,j[5]], ... , [j_0,...,j[5]]]
 		
+		print(xyzabg)
+		print(joint_all)
+		"""
 		dist = np.linalg.norm(np.array(joint) - np.array(joint_all[0]))
 		if dist > 0.001:
 			print(i, joint)
@@ -393,7 +399,8 @@ def main_dorna_c():
 		#print(i, joint)
 		#print(joint_all)
 		#print("######")
+		"""
 if __name__ == '__main__':
 	#main_random()
-	#main_diagnose()
-	main_dorna_c()
+	main_diagnose()
+	#main_dorna_c()
