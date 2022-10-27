@@ -24,12 +24,10 @@ class DH(object):
 		super(DH, self).__init__()
 
 		self.alpha = [0, np.pi/2, 0, 0, np.pi/2, np.pi/2]
-		#self.a = [0, 1, 2, 1.5, 0, 0]
-		#self.d = [0, 1, 0, 0, -1, 1, 1]
-		self.a = [0, 100.0, 300.0, 208.5, 0, 0]
-		self.d = [0, 309,7036, 0, 0, -133.1, 90.5, 9.707]
+		self.a = [0, 1, 1, 1, 0,0,0]
+		self.d = [0, 1, 0, 0,-1,1,1]
 
-		self.T_f0_r_base = np.identity(4) # word
+		self.T_f0_r_base = np.identity(4) # world
 		self.T_f_tcp_r6 = np.identity(4) # TCP
 
 	# Ti with respect to i-1 frame 
@@ -265,9 +263,9 @@ class Dorna_c_knmtc(object):
 		
 		# create the 6 degree of freedom robot
 		self.dof_6 = Dof_6()
+		
 		self.dof_6.a = [0, 100.0, 300.0, 208.5, 0, 0]
 		self.dof_6.d = [0, 309,7036, 0, 0, -133.1, 90.5, 9.707]
-
 		# create Euler
 		self.euler = Euler()
 
@@ -293,12 +291,15 @@ class Dorna_c_knmtc(object):
 		abg = self.euler.rot_to_eul(fw[0:3, 0:3])
 		abg = [math.degrees(r) for r in abg]
 
-		return [fw[0,3], fw[1,3], fw[2,3]] + abg
+		return [fw[0,3]/1000, fw[1,3]/1000, fw[2,3]/1000] + abg
 
 
 	def inv(self, xyzabg, joint_current=[], all_sol=True):
 		ABG = [math.radians(t) for t in xyzabg[3:]]
 		rot = self.euler.eul_to_rot(ABG)
+		xyzabg[0] = 1000*xyzabg[0]
+		xyzabg[1] = 1000*xyzabg[1]
+		xyzabg[2] = 1000*xyzabg[2]
 
 		T_f_tcp_r_base = np.matrix([
 			[rot[0,0], rot[0,1], rot[0,2], xyzabg[0]],
@@ -308,12 +309,12 @@ class Dorna_c_knmtc(object):
 		])
 
 		# init condition
-		theta_current = list(joint_current)
-		if theta_current:
-			theta_current = self.joint_to_theta(theta_current)
-		
+		theta_current = None
+		if joint_current:
+			theta_current = list(joint_current)
+			if theta_current:
+				theta_current = self.joint_to_theta(theta_current)
 		theta_all = self.dof_6.inv(T_f_tcp_r_base, theta_current=theta_current, all_sol=all_sol)
-		
 		# all the solution
 		joint_all = [self.theta_to_joint(theta) for theta in theta_all ]
 
@@ -353,7 +354,7 @@ def main_random():
 
 
 def main_diagnose():
-	theta =  [0, 0, 90, 0, 0, 0]
+	theta =  [-46.18777184724834, -124.78004640958426, 0, -140.31962984844893, -0.2814578757161428, 29.903238216683548]
 	print(theta)
 	_theta = [math.radians(t) for t in theta]
 	
@@ -378,18 +379,15 @@ def main_diagnose():
 def main_dorna_c():
 	thr = 0.001
 	knmtc = Dorna_c_knmtc() 
-	for i in range(1):
+	for i in range(100000):
 		flag = True
-		#joint = [360*random.random()-180, 360*random.random()-180, 360*random.random()-180, 360*random.random()-180, 360*random.random()-180, -720*random.random()-360]
-		joint = [0, 0, 0, 0, 0, 0]
+		joint = [360*random.random()-180, 360*random.random()-180, 360*random.random()-180, 360*random.random()-180, 360*random.random()-180, -720*random.random()-360]
+
 		dist_list = []
 		xyzabg = knmtc.fw(joint)
 		joint_all = knmtc.inv(xyzabg, joint_current=joint, all_sol=False)
 		#joint_all = [[j_0,...,j[5]]], all_sol == True, [[j_0,...,j[5]], ... , [j_0,...,j[5]]]
-		
-		print(xyzabg)
-		print(joint_all)
-		"""
+	
 		dist = np.linalg.norm(np.array(joint) - np.array(joint_all[0]))
 		if dist > 0.001:
 			print(i, joint)
@@ -399,8 +397,7 @@ def main_dorna_c():
 		#print(i, joint)
 		#print(joint_all)
 		#print("######")
-		"""
 if __name__ == '__main__':
 	#main_random()
-	main_diagnose()
-	#main_dorna_c()
+	#main_diagnose()
+	main_dorna_c()
