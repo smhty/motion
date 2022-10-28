@@ -265,7 +265,7 @@ class Dorna_c_knmtc(object):
 		self.dof_6 = Dof_6()
 		
 		self.dof_6.a = [0, 100.0, 300.0, 208.5, 0, 0]
-		self.dof_6.d = [0, 309,7036, 0, 0, -133.1, 90.5, 9.707]
+		self.dof_6.d = [0, 309.7, 0, 0, -133.1, 90.5, 9.707]
 		# create Euler
 		self.euler = Euler()
 
