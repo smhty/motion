@@ -79,28 +79,52 @@ class Dof_6(DH):
 	The robot T_f_tcp_r_base is given
 	find all the possible robot orientations 
 	"""
+	def d_theta(self,t1,t2):
+		dt = t2 - t1
+		while dt > math.pi:
+			dt = dt - 2 * math.pi
+		while dt < -math.pi:
+			dt = dt + 2 * math.pi
+		return dt
+
+	def angle_space_distance(self,s1 , s2):
+		d = 0
+		for i in range(len(s1)):
+			d = d + self.d_theta(s1[i],s2[i])**2
+
+		return d
+
+
 	def inv(self, T_f_tcp_r_base, theta_current, all_sol):
 		# init return
 		rtn = []
 
 		T_f6_r0 = np.matmul(T_f_tcp_r_base, self.inv_dh(self.T_f_tcp_r6))
 		T_f6_r0 = np.matmul(self.inv_dh(self.T_f0_r_base), T_f6_r0)
-		if all_sol:
+		if True:
 			for theta_1 in self.theta_1(T_f6_r0): # 2 x theta_1
 				for theta_5 in self.theta_5(T_f6_r0, theta_1): # 2 x theta_5
-					if theta_current:
+					if theta_current and False:
 						theta_6 = self.theta_6(T_f6_r0, theta_1, theta_5, theta_6_init=theta_current[5]) # 1 x theta_6
 					else:
 						theta_6 = self.theta_6(T_f6_r0, theta_1, theta_5)
 					for theta_2_3_4 in self.theta_3_2_4(T_f6_r0, theta_1, theta_5, theta_6): # 1 x theta_2, # 2 x theta_3, # 1 x theta_4
 						rtn.append([theta_1]+theta_2_3_4+[theta_5, theta_6])
-		
-		elif not all_sol and theta_current:
-			for theta_1 in self.theta_1(T_f6_r0, t1=theta_current[0]): # 2 x theta_1
-				for theta_5 in self.theta_5(T_f6_r0, theta_1, t5=theta_current[4]): # 2 x theta_5
-					theta_6 = self.theta_6(T_f6_r0, theta_1, theta_5, theta_6_init=theta_current[5]) # 1 x theta_6
-					for theta_2_3_4 in self.theta_3_2_4(T_f6_r0, theta_1, theta_5, theta_6, t3=theta_current[2]): # 1 x theta_2, # 2 x theta_3, # 1 x theta_4
-						rtn.append([theta_1]+theta_2_3_4+[theta_5, theta_6])
+		best_sol_dist = 1000
+		best_sol_indx = 0
+		if theta_current and len(rtn)>0: 
+			best_sol_dist = 1000
+			best_sol_indx = 0
+			indx = 0
+			for sol in rtn:
+				dist = self.angle_space_distance(sol,theta_current)
+				#print("\n",indx,":",sol,"dist:",dist)
+				if dist < best_sol_dist:
+					best_sol_dist = dist
+					best_sol_indx = indx
+				indx  = indx + 1
+			#print("best sol:",best_sol_dist,"with:",theta_current,"res index:",best_sol_indx,"\n")
+			return [rtn[best_sol_indx]]
 
 		return rtn
 
@@ -140,15 +164,17 @@ class Dof_6(DH):
 		except Exception as ex:
 			return []
 
+
 	def theta_6(self, T_f6_r0, theta_1, theta_5, theta_6_init=0):
 		sgn = 1
 		if abs(math.sin(theta_5)) < self.thr:
 			return theta_6_init
 		elif math.sin(theta_5) < 0:
 			sgn = -1
-		cos = (-T_f6_r0[0,0]*math.sin(theta_1) + T_f6_r0[1,0]*math.cos(theta_1))/(-sgn)
-		sin = (-T_f6_r0[0,1]*math.sin(theta_1) + T_f6_r0[1,1]*math.cos(theta_1))/(-sgn)
-		return -math.atan2(sin, cos)
+		cos = (-T_f6_r0[0,0]*math.sin(theta_1) + T_f6_r0[1,0]*math.cos(theta_1))/(-math.sin(theta_5))
+		sin = (-T_f6_r0[0,1]*math.sin(theta_1) + T_f6_r0[1,1]*math.cos(theta_1))/(-math.sin(theta_5))
+		res = -math.atan2(sin, cos)
+		return res
 
 	def theta_3_2_4(self, T_f6_r0, theta_1, theta_5, theta_6, t3=None):
 		rtn = []
