@@ -18,6 +18,10 @@ i | alpha[i-1]        | a[i-1] | d[i] | theta[i]
 6 | alpha[5]= np.pi/2 | 0      | d[6] |
 
 """
+def clamp(num, min_value, max_value):
+        num = max(min(num, max_value), min_value)
+        return num
+
 class DH(object):
 	"""docstring for dh"""
 	def __init__(self):
@@ -124,7 +128,11 @@ class Dof_6(DH):
 					best_sol_indx = indx
 				indx  = indx + 1
 			#print("best sol:",best_sol_dist,"with:",theta_current,"res index:",best_sol_indx,"\n")
-			return [rtn[best_sol_indx]]
+			if best_sol_dist < 100:
+				#print(best_sol_dist)
+				return [rtn[best_sol_indx]]
+			else:
+				return [theta_current]
 
 		return rtn
 
@@ -134,7 +142,7 @@ class Dof_6(DH):
 		p5y_0 = p5_0[1,0]
 		rtn = []
 		try:
-			alpha = math.asin(-self.d[4]/math.sqrt(p5x_0**2 + p5y_0**2))
+			alpha = math.asin(clamp(-self.d[4]/math.sqrt(p5x_0**2 + p5y_0**2), -1.0 , 1.0))
 			phi_1 = math.atan2(p5y_0, p5x_0)
 
 			rtn = [phi_1-alpha, phi_1+alpha-math.pi]
@@ -151,7 +159,7 @@ class Dof_6(DH):
 		nom = T_f6_r0[1,3]*np.cos(theta_1)-T_f6_r0[0,3]*np.sin(theta_1)+self.d[4]
 		rtn = []
 		try:
-			phi = math.acos(nom/self.d[6])
+			phi = math.acos(clamp(nom/self.d[6],-1.0,1.0))
 			rtn = [phi, -phi]
 			
 			if t5 !=None:
@@ -197,10 +205,10 @@ class Dof_6(DH):
 				t_3 = math.pi
 			elif abs(p4xz_norm - abs(self.a[2]+self.a[3])) < self.thr:
 				t_3 = 0
-			elif p4xz_norm > min(abs(self.a[2]+self.a[3]), abs(self.a[2]-self.a[3])) and p4xz_norm < max(abs(self.a[2]+self.a[3]), abs(self.a[2]-self.a[3])):
-				t_3 = math.acos((p4xz_norm**2 - self.a[2]**2 - self.a[3]**2)/(2*self.a[2]*self.a[3]))
-			else:
-				return rtn
+			elif True:#p4xz_norm > min(abs(self.a[2]+self.a[3]), abs(self.a[2]-self.a[3])) and p4xz_norm < max(abs(self.a[2]+self.a[3]), abs(self.a[2]-self.a[3])):
+				t_3 = math.acos(clamp((p4xz_norm**2 - self.a[2]**2 - self.a[3]**2)/(2*self.a[2]*self.a[3]),-1.0,1.0))
+			#else:
+			#	return rtn
 
 			t_3_list = [t_3, -t_3]
 			
@@ -214,7 +222,7 @@ class Dof_6(DH):
 					# theta 2
 					phi_3 = math.pi - theta_3
 					phi_1 = math.atan2(p4z, (p4x-self.a[1]))
-					phi_2 = math.asin(self.a[3]*math.sin(phi_3)/math.sqrt(p4z**2+(p4x-self.a[1])**2))
+					phi_2 = math.asin(clamp(self.a[3]*math.sin(phi_3)/math.sqrt(p4z**2+(p4x-self.a[1])**2),-1.0,1.0))
 					theta_2 = phi_1 - phi_2
 
 					# theta_4
