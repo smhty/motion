@@ -66,7 +66,7 @@ class Dof_6(DH):
 	"""docstring for dof_6"""
 	def __init__(self):
 		super(Dof_6, self).__init__()
-		self.thr = 0.0000000001
+		self.thr = 0.0001
 
 	"""
 	joint values are given in radians
@@ -100,36 +100,31 @@ class Dof_6(DH):
 
 
 	def inv(self, T_f_tcp_r_base, theta_current, all_sol):
-		# init return
 		rtn = []
-
 		T_f6_r0 = np.matmul(T_f_tcp_r_base, self.inv_dh(self.T_f_tcp_r6))
 		T_f6_r0 = np.matmul(self.inv_dh(self.T_f0_r_base), T_f6_r0)
-		if True:
-			for theta_1 in self.theta_1(T_f6_r0): # 2 x theta_1
-				for theta_5 in self.theta_5(T_f6_r0, theta_1): # 2 x theta_5
-					if theta_current and False:
-						theta_6 = self.theta_6(T_f6_r0, theta_1, theta_5, theta_6_init=theta_current[5]) # 1 x theta_6
-					else:
-						theta_6 = self.theta_6(T_f6_r0, theta_1, theta_5)
-					for theta_2_3_4 in self.theta_3_2_4(T_f6_r0, theta_1, theta_5, theta_6): # 1 x theta_2, # 2 x theta_3, # 1 x theta_4
-						rtn.append([theta_1]+theta_2_3_4+[theta_5, theta_6])
-		best_sol_dist = 1000
-		best_sol_indx = 0
+
+		for theta_1 in self.theta_1(T_f6_r0): # 2 x theta_1
+			for theta_5 in self.theta_5(T_f6_r0, theta_1): # 2 x theta_5
+				theta_6 = self.theta_6(T_f6_r0, theta_1, theta_5, theta_current[5])
+				for theta_2_3_4 in self.theta_3_2_4(T_f6_r0, theta_1, theta_5, theta_6): # 1 x theta_2, # 2 x theta_3, # 1 x theta_4
+					rtn.append([theta_1]+theta_2_3_4+[theta_5, theta_6])
+		
+		if all_sol:
+			return rtn
+
 		if theta_current and len(rtn)>0: 
 			best_sol_dist = 1000
 			best_sol_indx = 0
 			indx = 0
 			for sol in rtn:
 				dist = self.angle_space_distance(sol,theta_current)
-				#print("\n",indx,":",sol,"dist:",dist)
 				if dist < best_sol_dist:
 					best_sol_dist = dist
 					best_sol_indx = indx
 				indx  = indx + 1
-			#print("best sol:",best_sol_dist,"with:",theta_current,"res index:",best_sol_indx,"\n")
-			if best_sol_dist < 100:
-				#print(best_sol_dist)
+
+			if best_sol_dist < 1.0:
 				return [rtn[best_sol_indx]]
 			else:
 				return [theta_current]
@@ -174,14 +169,19 @@ class Dof_6(DH):
 
 
 	def theta_6(self, T_f6_r0, theta_1, theta_5, theta_6_init=0):
-		sgn = 1
+
 		if abs(math.sin(theta_5)) < self.thr:
 			return theta_6_init
-		elif math.sin(theta_5) < 0:
-			sgn = -1
-		cos = (-T_f6_r0[0,0]*math.sin(theta_1) + T_f6_r0[1,0]*math.cos(theta_1))/(-math.sin(theta_5))
-		sin = (-T_f6_r0[0,1]*math.sin(theta_1) + T_f6_r0[1,1]*math.cos(theta_1))/(-math.sin(theta_5))
+
+		sgn_t_5 = 1.0
+		if math.sin(theta_5)<0:
+			sgn_t_5 = -1.0
+
+		cos = -sgn_t_5*(-T_f6_r0[0,0]*math.sin(theta_1) + T_f6_r0[1,0]*math.cos(theta_1))#/(-math.sin(theta_5))
+		sin = -sgn_t_5*(-T_f6_r0[0,1]*math.sin(theta_1) + T_f6_r0[1,1]*math.cos(theta_1))#/(-math.sin(theta_5))
+		
 		res = -math.atan2(sin, cos)
+
 		return res
 
 	def theta_3_2_4(self, T_f6_r0, theta_1, theta_5, theta_6, t3=None):
@@ -201,12 +201,12 @@ class Dof_6(DH):
 			# theta 3
 			p4xz_norm = math.sqrt(p4z**2+(p4x-self.a[1])**2)
 			# make sure p4xz_norm is in abs(a[2]-a[3]) and abs(a[2]+a[3])
-			if abs(p4xz_norm - abs(self.a[2]-self.a[3])) < self.thr:
-				t_3 = math.pi
-			elif abs(p4xz_norm - abs(self.a[2]+self.a[3])) < self.thr:
-				t_3 = 0
-			elif True:#p4xz_norm > min(abs(self.a[2]+self.a[3]), abs(self.a[2]-self.a[3])) and p4xz_norm < max(abs(self.a[2]+self.a[3]), abs(self.a[2]-self.a[3])):
-				t_3 = math.acos(clamp((p4xz_norm**2 - self.a[2]**2 - self.a[3]**2)/(2*self.a[2]*self.a[3]),-1.0,1.0))
+			#if abs(p4xz_norm - abs(self.a[2]-self.a[3])) < self.thr:
+			#	t_3 = math.pi
+			#elif abs(p4xz_norm - abs(self.a[2]+self.a[3])) < self.thr:
+			#	t_3 = 0
+			#elif p4xz_norm > min(abs(self.a[2]+self.a[3]), abs(self.a[2]-self.a[3])) and p4xz_norm < max(abs(self.a[2]+self.a[3]), abs(self.a[2]-self.a[3])):
+			t_3 = math.acos(clamp((p4xz_norm**2 - self.a[2]**2 - self.a[3]**2)/(2*self.a[2]*self.a[3]),-1.0,1.0))
 			#else:
 			#	return rtn
 
@@ -260,16 +260,26 @@ class Euler(object):
 		
 
 	def rot_to_eul(self, rot):
-		# B = math.pi/2
-		if max(abs(rot[0, 0]), abs(rot[1, 0])) < 0.000001:
-			B = math.pi/2
-			A = 0
-			G = math.atan2(rot[0, 1], rot[1, 1])
-		
-		else:
-			B = math.atan2(-rot[2, 0], math.sqrt(rot[0, 0]**2 + rot[1, 0]**2))
-			A = math.atan2(rot[1, 0], rot[0, 0])
-			G = math.atan2(rot[2, 1], rot[2, 2])
+		thr = 0.0001
+
+		BC = math.sqrt(rot[0, 0]**2 + rot[1, 0]**2)
+		BS = -rot[2, 0]
+
+		AC =rot[0, 0]
+		AS =rot[1, 0]
+
+		GC =rot[2, 2]
+		GS = rot[2, 1]
+
+
+		if AS*AS + AC*AC > thr: 
+			B = math.atan2(BS,BC)
+			A = math.atan2(AS,AC)
+			G = math.atan2(GS,GC)
+		else: #SINGULARITY
+			B = -math.pi/2.0
+			G = (-90.0)/180.0*math.pi
+			A = 0.0/180.0*math.pi
 
 		return [A, B, G]
 
@@ -298,7 +308,7 @@ class Dorna_c_knmtc(object):
 		# create the 6 degree of freedom robot
 		self.dof_6 = Dof_6()
 		
-		self.dof_6.a = [0, 100.0, 300.0, 208.5, 0, 0]
+		self.dof_6.a = [0, 100.0, 300.0, 208.5, 0.000, 0.000]
 		self.dof_6.d = [0, 309.7, 0, 0, -133.1, 90.5, 9.707]
 		# create Euler
 		self.euler = Euler()
@@ -320,7 +330,6 @@ class Dorna_c_knmtc(object):
 		
 		# fw result
 		fw = self.dof_6.fw(_theta)
-
 		# abg
 		abg = self.euler.rot_to_eul(fw[0:3, 0:3])
 		abg = [math.degrees(r) for r in abg]
@@ -352,20 +361,13 @@ class Dorna_c_knmtc(object):
 		# all the solution
 		joint_all = [self.theta_to_joint(theta) for theta in theta_all ]
 
-		# adjust j[5] for infinite rotation
-		if joint_current:
-			rnd = math.floor(joint_current[5]/360)
-			if abs(joint_current[5] - (rnd+1) *360) < abs(joint_current[5] - rnd *360):
-				rnd += 1 
-
-			for j in joint_all:
-				j[5] += rnd*360
-		
 		return joint_all
 
 def main_random():
 	thr = 0.001
 	knmtc = Dof_6()
+	knmtc.a = [0, 100.0, 300.0, 208.5, 0, 0]
+	knmtc.d = [0, 309.7, 0, 0, -133.1, 90.5, 9.707]
 	for i in range(1):
 		flag = True
 		theta = [360*random.random()-180, 360*random.random()-180, 0, 0, 360*random.random()-180, 360*random.random()-180]
@@ -378,7 +380,6 @@ def main_random():
 			dist = np.linalg.norm(np.array(__theta) - np.array(_theta))
 			dist_list.append(dist)
 			if dist < thr:
-				#print("dist ", dist, __theta, _theta)
 				flag = False
 				break
 		if flag:
@@ -388,49 +389,44 @@ def main_random():
 
 
 def main_diagnose():
-	theta =  [-46.18777184724834, -124.78004640958426, 0, -140.31962984844893, -0.2814578757161428, 29.903238216683548]
-	print(theta)
+	theta =  [0.0,0.0,0.0,90.0,0.0,0.0]
 	_theta = [math.radians(t) for t in theta]
 	
 	knmtc = Dof_6()
+	knmtc.a = [0, 100.0, 300.0, 208.5, 0.001, 0.001]
+	knmtc.d = [0, 309.7, 0, 0, -133.1, 90.5, 9.707]
 	T_f_tcp_r_base = knmtc.fw(_theta)
+
 	T_f6_r0 = np.matmul(T_f_tcp_r_base, knmtc.inv_dh(knmtc.T_f_tcp_r6))
 	T_f6_r0 = np.matmul(knmtc.inv_dh(knmtc.T_f0_r_base), T_f6_r0)
 
-	theta_1 = knmtc.theta_1(T_f6_r0)
-	print([math.degrees(t) for t in theta_1])
-	
-	theta_5 = knmtc.theta_5(T_f6_r0, theta_1[1])
-	print([math.degrees(t) for t in theta_5])
-	
-	theta_6 = knmtc.theta_6(T_f6_r0, theta_1[1], theta_5[1])
-	print(math.degrees(theta_6))
 
-	theta_3_2_4 = knmtc.theta_3_2_4(T_f6_r0, theta_1[0], theta_5[1], theta_6)
-	print([[math.degrees(t) for t in x] for x in theta_3_2_4])
+	theta_1 = knmtc.theta_1(T_f6_r0)
+	print("t1:",[math.degrees(t) for t in theta_1])
+	
+	theta_5 = knmtc.theta_5(T_f6_r0, theta_1[0])
+	print("t5:",[math.degrees(t) for t in theta_5])
+	
+	theta_6 = knmtc.theta_6(T_f6_r0, theta_1[0], theta_5[0])
+	print("t6:",math.degrees(theta_6))
+
+	theta_3_2_4 = knmtc.theta_3_2_4(T_f6_r0, theta_1[0], theta_5[0], theta_6)
+	print("t3,2,4:",[[math.degrees(t) for t in x] for x in theta_3_2_4])
 
 
 def main_dorna_c():
 	thr = 0.001
 	knmtc = Dorna_c_knmtc() 
-	for i in range(100000):
+	for i in range(1):
 		flag = True
-		joint = [360*random.random()-180, 360*random.random()-180, 360*random.random()-180, 360*random.random()-180, 360*random.random()-180, -720*random.random()-360]
+		joint = [-0.001, -0.001 ,-0.001 , -0.001 , -0.001 , -0.001]
 
 		dist_list = []
 		xyzabg = knmtc.fw(joint)
+		print("xyzabg: ",xyzabg)
 		joint_all = knmtc.inv(xyzabg, joint_current=joint, all_sol=False)
-		#joint_all = [[j_0,...,j[5]]], all_sol == True, [[j_0,...,j[5]], ... , [j_0,...,j[5]]]
-	
-		dist = np.linalg.norm(np.array(joint) - np.array(joint_all[0]))
-		if dist > 0.001:
-			print(i, joint)
-			print(joint_all)
-			print("######")			
-			pass
-		#print(i, joint)
-		#print(joint_all)
-		#print("######")
+		print("final sol:",joint_all)
+
 if __name__ == '__main__':
 	#main_random()
 	#main_diagnose()
