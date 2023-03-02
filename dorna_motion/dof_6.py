@@ -258,33 +258,57 @@ class Euler(object):
 	def __init__(self):
 		super(Euler, self).__init__()
 		
+		self.sum_alpha = 3*np.pi/2
+		self.delta = 0
+
+		self.ssa = math.sin(self.sum_alpha)
+		self.cd = math.cos(self.delta)
+		self.sd = math.sin(self.delta)
+
 
 	def rot_to_eul(self, rot):
+
 		thr = 0.0001
 
-		BC = math.sqrt(rot[0, 0]**2 + rot[1, 0]**2)
-		BS = -rot[2, 0]
+		sgn = 1.0
 
-		AC =rot[0, 0]
-		AS =rot[1, 0]
+		ssa = self.ssa
+		cd = self.cd
+		sd = self.sd
 
-		GC =rot[2, 2]
-		GS = rot[2, 1]
+		sa = -rot[2,2]*ssa
+		ca = sgn * math.sqrt(1.0 - sa*sa)
+
+		A = math.atan2(sa,ca)
+		B = 0.0
+		G = 0.0
 
 
-		if AS*AS + AC*AC > thr: 
-			B = math.atan2(BS,BC)
-			A = math.atan2(AS,AC)
-			G = math.atan2(GS,GC)
-		else: #SINGULARITY
-			B = -math.pi/2.0
-			G = (-90.0)/180.0*math.pi
-			A = 0.0/180.0*math.pi
+		if abs(ca)>thr:
+
+			sb = ssa*rot[2,0]/ca
+			cb = ssa*rot[2,1]/ca
+
+			p1 = (rot[1,1]*ca+rot[1,2]*rot[2,1]*rot[2,2]/ca)
+
+			sg = -1.0/rot[2,0]*cd*ssa*p1+rot[1,2]*sd/ca
+			cg = -1.0/rot[2,0]*sd*p1 - rot[1,2]*cd*ssa/ca
+
+			B = math.atan2(sb,cb)
+			G = math.atan2(sg,cg)
+
+		else:
+
+			sb = - ssa*(rot[1,0]*cd*sa + rot[1,1]*sd)
+			cb = ssa*(-rot[1,1]*cd*sa + rot[1,0]*sd)
+
+			B = math.atan2(sb,cb)
 
 		return [A, B, G]
 
 
 	def eul_to_rot(self, ABG):
+
 		ca = math.cos(ABG[0])
 		sa = math.sin(ABG[0])
 
@@ -294,10 +318,20 @@ class Euler(object):
 		cg = math.cos(ABG[2])
 		sg = math.sin(ABG[2])
 
+		ssa = self.ssa
+		cd = self.cd
+		sd = self.sd
+
 		return np.matrix([
-			[ca*cb, ca*sb*sg-sa*cg, ca*sb*cg+sa*sg],
-			[sa*cb, sa*sb*sg+ca*cg, sa*sb*cg-ca*sg],
-			[-sb, cb*sg, cb*cg]])
+			[sa*sb*(cd*ssa*sg+cg*sd)+cb*(cg*cd-ssa*sg*sd),
+			cg*(-cd*sb+cb*sa*sd)+ssa*sg*(cb*cd*sa+sb*sd),
+			ca*(cd*ssa*sg+cg*sd)],
+			[cg*ssa*(-cd*sa*sb+cb*sd)+sg*(cb*cd+sa*sb*sd),
+			-sb*(cd*sg+cg*ssa*sd)+cb*sa*(-cg*cd*ssa+sg*sd),
+			ca*(-cg*cd*ssa+sg*sd)],
+			[ca*ssa*sb,
+			ca*cb*ssa,
+			-ssa*sa]])
 
 
 class Dorna_c_knmtc(object):
@@ -416,6 +450,14 @@ def main_diagnose():
 
 def main_dorna_c():
 	thr = 0.001
+
+	eul = Euler()
+
+	print("hi")
+	print(eul.rot_to_eul(np.matrix([[0,-1,0],[1,0,0],[0,0,1]])))
+	print(eul.eul_to_rot(eul.rot_to_eul(np.matrix([[0,-1,0],[1,0,0],[0,0,1]]))))
+
+	"""
 	knmtc = Dorna_c_knmtc() 
 	for i in range(1):
 		flag = True
@@ -426,7 +468,7 @@ def main_dorna_c():
 		print("xyzabg: ",xyzabg)
 		joint_all = knmtc.inv(xyzabg, joint_current=joint, all_sol=False)
 		print("final sol:",joint_all)
-
+	"""
 if __name__ == '__main__':
 	#main_random()
 	#main_diagnose()
