@@ -53,7 +53,7 @@ class quat(object):
 		return 0
 
 	def rot_vec_to_quat(self, v):
-
+		return 0
 
 
 class rot(object):
